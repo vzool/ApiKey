@@ -1,25 +1,24 @@
 <?php
-use Illuminate\Database\Eloquent\Model;
 
 define('KEY_LENGTH', 33);
 define('HASH_ALGO', 'sha3-384');
 define('HASH_LENGTH', strlen(hash(HASH_ALGO, '')));
 
-class ApiKey extends Model
+class ApiKey
 {
-    protected $table = 'sys_api';
-    public $timestamps = false;
-    protected $fillable = [
-        'apikey',
-        'ip',
-        'label',
-    ];
+    private static $data = [];
 
-    private function private_key(string $public_key)
+    public function __construct(
+        public string $label,
+        public string $ip,
+        public string $stored_key = '',
+    ) {}
+
+    private static function private_key(string $stored_key, string $public_key)
     {
-        if(strlen($this->apikey) > KEY_LENGTH * 4)
+        if(strlen($stored_key) > KEY_LENGTH * 4)
         {
-            $y = explode(hash(HASH_ALGO, $public_key), $this->apikey);
+            $y = explode(hash(HASH_ALGO, $public_key), $stored_key);
             return substr($y[1], 0, KEY_LENGTH * 2);
         }
     }
@@ -32,8 +31,9 @@ class ApiKey extends Model
         return $key;
     }
 
-    private static function calculateSharedKey(string $private_key, string $custom_app_key = null) : string
+    private static function calculateSharedKey(string $private_key, ?string $custom_app_key = null) : string
     {
+        assert(defined('APP_KEY'));
         $app_key = $custom_app_key ?? APP_KEY;
 
         if(!$app_key) return 'Your application does not has an app key, search for `APP_KEY`!!!';
@@ -46,24 +46,39 @@ class ApiKey extends Model
     {
         $hash = hash(HASH_ALGO, $key);
         if(strlen($key) >= KEY_LENGTH * 2)
-            return self::whereLike('apikey', "%$key%")->orWhereLike('apikey', "%$hash%")->limit(1)->first();
+            return array_reduce(
+                array_keys(self::$data),
+                function (?array $carry, string $key) use ($hash): ?ApiKey {
+                    if ($carry !== null) {
+                        return $carry; // First match already found, return it
+                    }
+                    if (strpos($key, $hash) !== false) {
+                        $apiKey = self::$data[$key];
+                        if($apiKey){
+                            $apiKey->stored_key = $key;
+                            return $apiKey;
+                        }
+                    }
+                    return null; // No match yet, continue the reduction
+                },
+                null // Initial value for the carry
+            );
     }
 
     public static function make(string $label, string $ip = '') : string
     {
         $public_key = self::randomKey();
-        $apiKey = new ApiKey([
-            'label' => $label . '@' . date('Y-m-d H:i:s'),
-            'ip' => $ip,
-            'apikey' => uniqid(bin2hex(random_bytes(random_int(1, KEY_LENGTH)))) .
-                        hash(HASH_ALGO, $public_key) .
-                        self::randomKey() .
-                        uniqid(bin2hex(random_bytes(random_int(1, KEY_LENGTH)))),
-        ]);
-
-        $apiKey->save();
-
-        return $public_key . self::calculateSharedKey($apiKey->private_key($public_key));
+        $stored_key = uniqid(bin2hex(random_bytes(random_int(1, KEY_LENGTH)))) .
+                hash(HASH_ALGO, $public_key) .
+                self::randomKey() .
+                uniqid(bin2hex(random_bytes(random_int(1, KEY_LENGTH))));
+        $apiKey = new ApiKey(
+            label: $label . '@' . date('Y-m-d H:i:s'),
+            ip: $ip,
+        );
+        self::$data[$stored_key] = $apiKey;
+        $privateKey = self::private_key($stored_key, $public_key);
+        return $public_key . self::calculateSharedKey($privateKey);
     }
 
     public static function check(string $token) : bool
@@ -75,7 +90,21 @@ class ApiKey extends Model
         $apiKey = self::keyExists($public_key);
 
         if(!$apiKey) return false;
-        return hash_equals(self::calculateSharedKey($apiKey->private_key($public_key)), $shared_key);
+        return hash_equals(self::calculateSharedKey(self::private_key($apiKey->stored_key, $public_key)), $shared_key);
     }
 }
+
+// $failed = FALSE;
+// try{
+//     ApiKey::make('x', '127.0.0.1');
+// }catch(Exception $e){
+//     $failed = TRUE;
+// }
+// assert($failed);
+define('APP_KEY', '1bd4145f-30cd-46f2-aa7e-598039a34850');
+$token = ApiKey::make('x', '127.0.0.1');
+assert(ApiKey::check($token));
+assert(!ApiKey::check($token. '3'));
+assert(!ApiKey::check(''));
+
 ?>
