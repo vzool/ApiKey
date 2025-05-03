@@ -167,7 +167,7 @@ class Key
                 if($debug) var_dump($key);
                 $token = $key->token();
                 if($debug) var_dump($token);
-                assert($token);
+                assert(! empty($token));
                 assert($key->valid($token));
                 assert(! $key->valid($token . 'x'));
                 assert(! $key->valid('x'));
@@ -179,8 +179,8 @@ class Key
                     KEY_LENGTH: $KEY_LENGTH,
                     HASH_ALGO: $algo,
                 );
-                assert($key2);
                 if($debug) var_dump($key2);
+                assert(! empty($key2));
                 $failed = false;
                 try{
                     //$key2->token();
@@ -190,7 +190,7 @@ class Key
                 assert(! $key2->valid($token . 'y'));
                 assert(! $key2->valid('y'));
                 assert(! $key2->valid(''));
-                assert($token);
+                assert(! empty($token));
             }
         }
     }
@@ -216,6 +216,7 @@ class ApiKeyMemory extends Key
         string $label,
         string $APP_KEY,
         string $ip = '',
+        int $KEY_LENGTH = 33,
         string $HASH_ALGO = 'sha3-384',
     ) : string
     {
@@ -223,19 +224,16 @@ class ApiKeyMemory extends Key
             label: $label . '@' . date('Y-m-d H:i:s'),
             ip: $ip,
             APP_KEY: $APP_KEY,
-        );
-        $hashed_public_key = self::hmac(
-            text: $key->public_key,
-            APP_KEY: $APP_KEY,
+            KEY_LENGTH: $KEY_LENGTH,
             HASH_ALGO: $HASH_ALGO,
         );
-        assert(self::save($hashed_public_key, $key->data));
+        assert(self::save($key->hashed_public_key, $key->data));
         if(self::$debug){
             echo('=================================================' . PHP_EOL);
-            echo("SAVE ($hashed_public_key)" . PHP_EOL);
-            echo('-------------------------------------------------' . PHP_EOL);
+            echo("SAVE ({$key->hashed_public_key})" . PHP_EOL);
+            echo('------------------------- [DATA] ------------------------' . PHP_EOL);
             var_dump($key->data);
-            echo('-------------------------------------------------' . PHP_EOL);
+            echo('------------------------- [MEMORY] ------------------------' . PHP_EOL);
             var_dump(self::$memory);
             echo('-------------------------------------------------' . PHP_EOL);
         }
@@ -267,15 +265,19 @@ class ApiKeyMemory extends Key
         $data = self::load($hashed_public_key);
         if(self::$debug){
             echo('=================================================' . PHP_EOL);
-            echo("LOAD ($hashed_public_key)" . PHP_EOL);
-            echo('-------------------------------------------------' . PHP_EOL);
+            echo("LOAD hashed_public_key: ($hashed_public_key)" . PHP_EOL);
+            echo("LOAD token: ($token)" . PHP_EOL);
+            echo("LOAD public_key: ($public_key)" . PHP_EOL);
+            echo("LOAD shared_key: ($shared_key)" . PHP_EOL);
+            echo('------------------------- [DATA] ------------------------' . PHP_EOL);
             var_dump($data);
-            echo('-------------------------------------------------' . PHP_EOL);
+            echo('------------------------- [MEMORY] ------------------------' . PHP_EOL);
             var_dump(self::$memory);
             echo('-------------------------------------------------' . PHP_EOL);
         }
+        assert(! empty($data));
         $key = self::create(
-            public_key: $public_key,
+            hashed_public_key: $hashed_public_key,
             data: $data,
             label: '',
             ip: '',
@@ -293,13 +295,14 @@ class ApiKeyMemory extends Key
         $APP_KEY = '65162b0b-784d-4e15-88b4-459d5caadf3f';
         self::$debug = $debug;
         $token = self::make('x', '127.0.0.1', $APP_KEY);
+        assert(! empty($token));
         if($debug){
             echo("CREATE(token: $token)" . PHP_EOL);
             var_dump($token);
         }
-        assert(self::check($token, $APP_KEY));
-        assert(! self::check('', $APP_KEY));
-        assert(! self::check('123', $APP_KEY));
+        assert(self::check($token, APP_KEY: $APP_KEY));
+        assert(! self::check('', APP_KEY: $APP_KEY));
+        assert(! self::check('123', APP_KEY: $APP_KEY));
     }
 }
 
