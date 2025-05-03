@@ -9,6 +9,7 @@ class Key
 
     public string $data;
     public string $public_key;
+    public string $hashed_public_key;
     public string $label;
     public string $ip;
 
@@ -18,7 +19,7 @@ class Key
         string $APP_KEY,
         int $KEY_LENGTH = 33,
         string $HASH_ALGO = 'sha3-384',
-        string $public_key = '',
+        string $hashed_public_key = '',
         string $data = '',
     ) {
         if(!$APP_KEY) throw new Exception('APP_KEY is required.');
@@ -30,19 +31,19 @@ class Key
         $this->KEY_LENGTH = $KEY_LENGTH;
         $this->HASH_ALGO = $HASH_ALGO;
         $this->HASH_LENGTH = strlen(hash($HASH_ALGO, ''));
-        $this->public_key = $public_key;
+        $this->hashed_public_key = $hashed_public_key;
         $this->data = $data;
 
-        if($public_key || $data) return;
+        if($hashed_public_key || $data) return;
 
         $this->public_key = $this->random_key();
-        $hashed_public_key = self::hmac(
+        $this->hashed_public_key = self::hmac(
             text: $this->public_key,
             APP_KEY: $this->APP_KEY,
             HASH_ALGO: $this->HASH_ALGO,
         );
         $this->data = uniqid(bin2hex(random_bytes(random_int(1, $this->KEY_LENGTH)))) .
-                $hashed_public_key .
+                $this->hashed_public_key .
                 $this->random_key() .
                 uniqid(bin2hex(random_bytes(random_int(1, $this->KEY_LENGTH))))
                 ;
@@ -53,11 +54,11 @@ class Key
         return bin2hex(random_bytes($this->KEY_LENGTH));
     }
 
-    private function private_key(string $hashed_public_key)
+    private function private_key()
     {
         if(strlen($this->data) > $this->KEY_LENGTH * 4)
         {
-            $y = explode($hashed_public_key, $this->data);
+            $y = explode($this->hashed_public_key, $this->data);
             return substr($y[1], 0, $this->KEY_LENGTH * 2);
         }
     }
@@ -73,14 +74,9 @@ class Key
 
     public function token() : string
     {
+        assert(!empty($this->public_key));
         return $this->public_key . self::hmac(
-            text: $this->private_key(
-                self::hmac(
-                    text: $this->public_key,
-                    APP_KEY: $this->APP_KEY,
-                    HASH_ALGO: $this->HASH_ALGO,
-                ),
-            ),
+            text: $this->private_key(),
             APP_KEY: $this->APP_KEY,
             HASH_ALGO: $this->HASH_ALGO,
         );
@@ -121,13 +117,7 @@ class Key
 
         return hash_equals(
             self::hmac(
-                text: $this->private_key(
-                    $this->hmac(
-                        text: $this->public_key,
-                        APP_KEY: $this->APP_KEY,
-                        HASH_ALGO: $this->HASH_ALGO,
-                    ),
-                ),
+                text: $this->private_key(),
                 APP_KEY: $this->APP_KEY,
                 HASH_ALGO: $this->HASH_ALGO,
             ),
@@ -136,7 +126,7 @@ class Key
     }
 
     public static function create(
-        string $public_key,
+        string $hashed_public_key,
         string $data,
         string $APP_KEY,
         string $label = '',
@@ -151,7 +141,7 @@ class Key
             APP_KEY: $APP_KEY,
             KEY_LENGTH: $KEY_LENGTH,
             HASH_ALGO: $HASH_ALGO,
-            public_key: $public_key,
+            hashed_public_key: $hashed_public_key,
             data: $data,
         );
     }
@@ -183,20 +173,24 @@ class Key
                 assert(! $key->valid('x'));
                 assert(! $key->valid(''));
                 $key2 = Key::create(
-                    public_key: $key->public_key,
+                    hashed_public_key: $key->hashed_public_key,
                     data: $key->data,
                     APP_KEY: $APP_KEY,
                     KEY_LENGTH: $KEY_LENGTH,
                     HASH_ALGO: $algo,
                 );
-                $token2 = $key2->token();
-                if($debug) var_dump($token2);
-                assert($token2);
-                assert($key2->valid($token2));
-                assert(! $key2->valid($token2 . 'x'));
-                assert(! $key2->valid('x'));
+                assert($key2);
+                if($debug) var_dump($key2);
+                $failed = false;
+                try{
+                    //$key2->token();
+                }catch(Exception $ex) { $failed = true; }
+                //assert($failed);
+                assert($key2->valid($token));
+                assert(! $key2->valid($token . 'y'));
+                assert(! $key2->valid('y'));
                 assert(! $key2->valid(''));
-                assert($token === $token2);
+                assert($token);
             }
         }
     }
