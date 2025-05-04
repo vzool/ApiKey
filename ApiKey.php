@@ -3,25 +3,17 @@
 
 class Key
 {
-    private int $KEY_LENGTH;
-    private string $HASH_ALGO;
-    private string $APP_KEY;
-
-    public string $data;
     public string $public_key;
-    public string $hashed_public_key;
-    public string $label;
-    public string $ip;
     public static bool $debug = false;
 
     public function __construct(
-        string $label,
-        string $ip,
-        string $APP_KEY,
-        int $KEY_LENGTH = 33,
-        string $HASH_ALGO = 'sha3-384',
-        string $hashed_public_key = '',
-        string $data = '',
+        public string $label,
+        public string $ip,
+        private string $APP_KEY,
+        private int $KEY_LENGTH = 33,
+        private string $HASH_ALGO = 'sha3-384',
+        public string $hashed_public_key = '',
+        public string $data = '',
     ) {
         if( ! $APP_KEY) throw new Exception('APP_KEY is required.');
         if( ! in_array($HASH_ALGO, hash_hmac_algos()))
