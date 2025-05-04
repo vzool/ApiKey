@@ -13,7 +13,7 @@ The `Key` class is the core of the library. It handles the generation, hashing, 
 ### Features
 
 * **Key Generation:** Generates a random, secure API key.
-* **Hashing:** Hashes the public key using a provided `APP_KEY` and a strong hashing algorithm (default: SHA3-384).
+* **Hashing:** Hashes the public key using a provided `APP_KEY` and a strong hashing algorithm (default: `SHA3-384`).
 * **Token Creation:** Creates a token by combining the public key and a hash of a private key.
 * **Token Parsing:** Parses a token to extract the public and shared keys.
 * **Validation:** Validates a token by comparing the provided shared key with a newly generated hash.
@@ -24,7 +24,7 @@ The `Key` class is the core of the library. It handles the generation, hashing, 
     * `KEY_LENGTH`:  The length of the generated API key (default: 33 bytes).
     * `HASH_ALGO`:  The hashing algorithm to use (default: `sha3-384`).  See `hash_hmac_algos()` for supported algorithms.
 * **Static Helper Functions:**
-    * `hmac()`:  Computes the HMAC hash of a given text using the provided `APP_KEY` and hashing algorithm.
+    * `hmac()`:  Computes the HMAC hash of a given `text` using the provided `APP_KEY` and hashing algorithm.
     * `parse()`:  Parses a token into its public and shared key components.
     * `create()`:  Reconstructs a `Key` object from stored data (hashed public key and data).
 * **Testing:** Includes a `test()` method with comprehensive unit tests.
@@ -126,7 +126,7 @@ Stores API keys in the file system. This provides persistence across requests an
 - `load()`: Loads key data from a file.
 - `make()`: Generates a new API key and stores it in the file system. Returns the token.
 - `check()`: Checks the validity of a token by retrieving the key from the file system.
-- `test()`: Includes a test() method with unit tests.
+- `test()`: Includes a `test()` method with unit tests.
 
 ##### Usage
 
@@ -164,10 +164,22 @@ require_once 'ApiKey.php';
 ?>
 ```
 
+### Testing
+
+```shell
+php ApiKey.php
+```
+
+OR
+
+```php
+<?php require_once 'ApiKey.php'; ?>
+```
+
 ### Security Considerations
 
 - **`APP_KEY` is Critical**: The `APP_KEY` is used to hash the API keys. It must be kept secret. Do not expose it in your code or configuration files. Use environment variables or a secure configuration management system.
-- **Storage**: Choose the appropriate storage mechanism for your needs. ApiKeyMemory is only suitable for testing. For production, use `ApiKeyFS` or implement your own storage class (e.g., to store keys in a database) by extending the Key class and overriding the save() and load() methods.
+- **Storage**: Choose the appropriate storage mechanism for your needs. `ApiKeyMemory` is only suitable for testing. For production, use `ApiKeyFS` or implement your own storage class (e.g., to store keys in a database) by extending the `ApiKeyMemory` or `ApiKeyFS` class and overriding the `save()` and `load()` methods.
 - **File System Permissions**: If using `ApiKeyFS`, ensure that the directory specified by `API_KEY_PATH` is not publicly accessible and is writable by the PHP process.
 - **Hashing Algorithm**: The default hashing algorithm (`sha3-384`) is strong, but you can choose a different algorithm if needed. Use `hash_hmac_algos()` to get a list of supported algorithms.
 - **Key Length**: The default key length (33 bytes) is secure, but you can adjust it using the `KEY_LENGTH` parameter. Longer keys are more secure but also take up more storage space.
@@ -180,7 +192,7 @@ You can extend the library to support other storage mechanisms by creating a new
 
 ### Debugging
 
-The Key class, and the `ApiKeyMemory` and `ApiKeyFS` classes have a static $debug property. When set to true, the classes will output additional information to help with debugging.
+The `Key` class, and the `ApiKeyMemory` and `ApiKeyFS` classes have a static `$debug` property. When set to true, the classes will output additional information to help with debugging.
 
 ```php
 <?php

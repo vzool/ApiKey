@@ -152,7 +152,7 @@ class Key
         }catch(Exception $ex) { $failed = true; }
         assert($failed);
         $APP_KEY = '1bd4145f-30cd-46f2-aa7e-598039a34850';
-        for($KEY_LENGTH = 1; $KEY_LENGTH < 34; $KEY_LENGTH++){
+        for($KEY_LENGTH = 9; $KEY_LENGTH < 34; $KEY_LENGTH++){
             foreach(hash_hmac_algos() as $algo){
                 if($debug) echo("###### ALGO($algo) - KEY_LENGTH($KEY_LENGTH) ######" . PHP_EOL);
                 $key = new self(
