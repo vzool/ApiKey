@@ -66,10 +66,10 @@ class Key
     ) : string
     {
         if(self::$debug){
-                echo('get_defined_vars: ' . PHP_EOL);
-                var_dump(get_defined_vars());
-            }
-            return hash_hmac($HASH_ALGO, $text, $APP_KEY, false);
+            echo('get_defined_vars: ' . PHP_EOL);
+            var_dump(get_defined_vars());
+        }
+        return hash_hmac($HASH_ALGO, $text, $APP_KEY, false);
     }
 
     public function token() : string
@@ -95,7 +95,7 @@ class Key
             return [];
 
         $public_key = substr($token, 0, -$HASH_LENGTH);
-        $shared_key = substr($token, -$HASH_LENGTH);
+        $shared_key = substr($token, -$HASH_LENGTH, $HASH_LENGTH); // !!!
 
         return [
             $public_key,
@@ -350,9 +350,193 @@ class ApiKeyFS extends ApiKeyMemory
 
 if(defined('API_KEY_LIB')) return;
 
+class CLI
+{
+    public static $options = [];
+
+    public static function display_help()
+    {
+        global $argv;
+        echo "Usage: {$argv[0]} <command> [options]\n";
+        echo "Version: " . API_KEY_VERSION . "\n";
+        echo "\n";
+        echo "Commands:\n";
+        echo "  generate  Generate a new API key and store it.\n";
+        echo "  check     Check the validity of an API key.\n";
+        echo "  help      Display this help message.\n";
+        echo "\n";
+        echo "Options:\n";
+        echo "  --app-key=<app-key>     Application key (always required).\n";
+        echo "  --path=<api-keys-path>  API Keys storage path (always required).\n";
+        echo "  --label=<label>         Label for the API key (required for generate).\n";
+        echo "  --ip=<ip>               IP address of the client (optional for generate).\n";
+        echo "  --token=<token>         The API key token to check (required for check).\n";
+        echo "\n";
+        echo "Example:\n";
+        echo "  php {$argv[0]} generate --app-key=abc-def-ghi --path=tmp --label=my-app --ip=192.168.1.100\n";
+        echo "  php {$argv[0]} check --app-key=abc-def-ghi --path=tmp --token=the-api-key-token-here\n";
+        echo "  php {$argv[0]} help\n";
+    }
+
+    public static function parse()
+    {
+        global $argv, $argc;
+        // Parse command-line options
+        for ($i = 2; $i < $argc; $i++) {
+            $arg = $argv[$i];
+            if (strpos($arg, '--') === 0) {
+                $parts = explode('=', substr($arg, 2), 2);
+                $key = $parts[0];
+                $value = isset($parts[1]) ? $parts[1] : true; // Allow boolean flags
+                self::$options[$key] = $value;
+            } else {
+                // Handle non-option arguments if needed
+            }
+        }
+    }
+
+    public static function handle_generate()
+    {
+        if (!isset(self::$options['app-key'])) {
+            echo "Error: The --app-key option is required for the generate command.\n";
+            self::display_help();
+            exit(1);
+        }
+        $app_key = self::$options['app-key'];
+
+        if (!isset(self::$options['path'])) {
+            echo "Error: The --path option is required for the generate command.\n";
+            self::display_help();
+            exit(1);
+        }
+        $path = self::$options['path'];
+
+        if (!isset(self::$options['label'])) {
+            echo "Error: The --label option is required for the generate command.\n";
+            self::display_help();
+            exit(1);
+        }
+        $label = self::$options['label'];
+        $ip = isset(self::$options['ip']) ? self::$options['ip'] : '';
+
+        try {
+            define('API_KEY_PATH', $path);
+            define('APP_KEY', $app_key);
+            $token = ApiKeyFS::make(
+                label: $label,
+                ip: $ip,
+            );
+            // echo "Generated API Key Token:\n";
+            echo $token;
+            // echo "\n";
+            // echo "Key stored in: " . API_KEY_PATH . "\n";
+        } catch (Exception $e) {
+            echo "Error: " . $e->getMessage() . "\n";
+            exit(1);
+        }
+    }
+
+    public static function handle_check()
+    {
+        if (!isset(self::$options['app-key'])) {
+            echo "Error: The --app-key option is required for the generate command.\n";
+            self::display_help();
+            exit(1);
+        }
+        $app_key = self::$options['app-key'];
+
+        if (!isset(self::$options['path'])) {
+            echo "Error: The --path option is required for the generate command.\n";
+            self::display_help();
+            exit(1);
+        }
+        $path = self::$options['path'];
+
+        if (!isset(self::$options['token'])) {
+            echo "Error: The --token option is required for the check command.\n";
+            self::display_help();
+            exit(1);
+        }
+        $token = self::$options['token'];
+
+        try {
+            define('API_KEY_PATH', $path);
+            define('APP_KEY', $app_key);
+            $isValid = ApiKeyFS::check($token);
+            echo "API Key Token is " . ($isValid ? "valid" : "invalid") . ".\n";
+        } catch (Exception $e) {
+            echo "Error: " . $e->getMessage() . "\n";
+            exit(1);
+        }
+    }
+
+    public static function run()
+    {
+        global $argv;
+        $cli = count($argv) > 1;
+        if( ! $cli) return;
+        $command = $argv[1];
+        self::parse();
+        switch ($command) {
+            case 'generate':
+                self::handle_generate();
+                break;
+            case 'check':
+                self::handle_check();
+                break;
+            case 'help':
+            default:
+                self::display_help();
+                break;
+        }
+        exit(0);
+    }
+
+    public static function test(bool $debug = false)
+    {
+        // generate
+        $output = [];
+        $return_var = 0;
+        $command = 'php ApiKey.php generate --app-key=abc-def-ghi --path=tmp --label=my-app --ip=192.168.1.100';
+        if($debug) echo "Command: $command\n";
+        exec($command, $output, $return_var);
+        if($debug) var_dump(['return_var' => $return_var, 'output' => $output]);
+        assert($return_var === 0);
+        assert(count($output) === 1);
+        $token = $output[0];
+        
+        // check vaild
+        $output = [];
+        $command = 'php ApiKey.php check --app-key=abc-def-ghi --path=tmp --token=' . $token;
+        $return_var = 0;
+        if($debug) echo "Command: $command\n";
+        exec($command, $output, $return_var);
+        if($debug) var_dump(['return_var' => $return_var, 'output' => $output]);
+        assert($return_var === 0);
+        if($debug) var_dump($output);
+        assert(count($output) === 1);
+        assert(in_array('API Key Token is valid.', $output));
+        
+        // check invalid
+        $output = [];
+        $return_var = 0;
+        $command = 'php ApiKey.php check --app-key=abc-def-ghi --path=tmp --token=xyz';
+        if($debug) echo "Command: $command\n";
+        exec($command, $output, $return_var);
+        if($debug) var_dump(['return_var' => $return_var, 'output' => $output]);
+        assert($return_var === 0);
+        if($debug) var_dump($output);
+        assert(count($output) === 1);
+        assert(in_array('API Key Token is invalid.', $output));
+    }
+}
+
+CLI::run();
+
 Key::test(true);
 ApiKeyMemory::test(true);
 ApiKeyFS::test(true);
+CLI::test(true);
 
 echo('ok' . PHP_EOL);
 ?>

@@ -20,13 +20,13 @@ The `Key` class is the core of the library. It handles the generation, hashing, 
 * **Customization:**
     * `label`:  A label for the API key.
     * `ip`: The IP address associated with the API key.
-    * `APP_KEY`:  A secret key used for hashing.  **This is required and must be kept secret.**
-    * `KEY_LENGTH`:  The length of the generated API key (default: 33 bytes).
-    * `HASH_ALGO`:  The hashing algorithm to use (default: `sha3-384`).  See `hash_hmac_algos()` for supported algorithms.
+    * `APP_KEY`: A secret key used for hashing.  **This is required and must be kept secret.**
+    * `KEY_LENGTH`: The length of the generated API key (default: 33 bytes).
+    * `HASH_ALGO`: The hashing algorithm to use (default: `sha3-384`).  See `hash_hmac_algos()` for supported algorithms.
 * **Static Helper Functions:**
-    * `hmac()`:  Computes the HMAC hash of a given `text` using the provided `APP_KEY` and hashing algorithm.
-    * `parse()`:  Parses a token into its public and shared key components.
-    * `create()`:  Reconstructs a `Key` object from stored data (hashed public key and data).
+    * `hmac()`: Computes the HMAC hash of a given `text` using the provided `APP_KEY` and hashing algorithm.
+    * `parse()`: Parses a token into its public and shared key components.
+    * `create()`: Reconstructs a `Key` object from stored data (hashed public key and data).
 * **Testing:** Includes a `test()` method with comprehensive unit tests.
 
 ### Usage
@@ -82,6 +82,7 @@ if ($isValid2) {
 The library provides two implementations for storing API keys:
 
 #### 1. ApiKeyMemory
+
 Stores API keys in a static memory array. This is suitable for short-lived processes or testing, but not recommended for production due to its non-persistent nature.
 
 ##### Features
@@ -90,7 +91,7 @@ Stores API keys in a static memory array. This is suitable for short-lived proce
 - `load()`: Loads data associated with a hashed public key from the static array.
 - `make()`: Generates a new API key and stores it in memory. Returns the token.
 - `check()`: Checks the validity of a token by retrieving the key from memory.
-- `test()`: Includes a test() method with unit tests.
+- `test()`: Includes a `test()` method with unit tests.
 
 ##### Usage
 
@@ -192,7 +193,7 @@ You can extend the library to support other storage mechanisms by creating a new
 
 ### Debugging
 
-The `Key` class, and the `ApiKeyMemory` and `ApiKeyFS` classes have a static `$debug` property. When set to true, the classes will output additional information to help with debugging.
+The `Key` class, and the `ApiKeyMemory` and `ApiKeyFS` classes have a static `$debug` property. When set to `true`, the classes will output additional information to help with debugging.
 
 ```php
 <?php
