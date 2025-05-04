@@ -135,7 +135,7 @@ Stores API keys in the file system. This provides persistence across requests an
 define('API_KEY_LIB', time());
 require_once 'ApiKey.php';
 
-define('API_KEY_PATH', 'path/to/your/storage'); // Define where to store the keys.  Make sure this directory is writable.
+define('API_KEY_PATH', 'tmp/path/to/your/storage'); // Define where to store the keys.  Make sure this directory is writable.
 define('APP_KEY', 'your-secret-app-key');  //Define APP_KEY
 
 // Generate and store a key in the file system.
@@ -170,7 +170,7 @@ require_once 'ApiKey.php';
 - **Storage**: Choose the appropriate storage mechanism for your needs. ApiKeyMemory is only suitable for testing. For production, use `ApiKeyFS` or implement your own storage class (e.g., to store keys in a database) by extending the Key class and overriding the save() and load() methods.
 - **File System Permissions**: If using `ApiKeyFS`, ensure that the directory specified by `API_KEY_PATH` is not publicly accessible and is writable by the PHP process.
 - **Hashing Algorithm**: The default hashing algorithm (`sha3-384`) is strong, but you can choose a different algorithm if needed. Use `hash_hmac_algos()` to get a list of supported algorithms.
-- Key Length: The default key length (33 bytes) is secure, but you can adjust it using the `KEY_LENGTH` parameter. Longer keys are more secure but also take up more storage space.
+- **Key Length**: The default key length (33 bytes) is secure, but you can adjust it using the `KEY_LENGTH` parameter. Longer keys are more secure but also take up more storage space.
 - **Token Transmission**: Transmit tokens securely (e.g., over HTTPS) to prevent them from being intercepted.
 - **Error Handling**: The code uses assert statements and throws exceptions. In a production environment, you should replace these with proper error logging and handling.
 - **Testing**: The code includes `test()` methods. It is highly recommended to run these tests to ensure that the library is working correctly in your environment.
