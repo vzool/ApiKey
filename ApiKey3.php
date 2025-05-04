@@ -4,7 +4,6 @@ class Key
 {
     private int $KEY_LENGTH;
     private string $HASH_ALGO;
-    private int $HASH_LENGTH;
     private string $APP_KEY;
 
     public string $data;
@@ -23,15 +22,15 @@ class Key
         string $hashed_public_key = '',
         string $data = '',
     ) {
-        if(!$APP_KEY) throw new Exception('APP_KEY is required.');
-        if(!in_array($HASH_ALGO, hash_hmac_algos())) throw new Exception('Unsupported hash algorithm(' . $HASH_ALGO . ')');
+        if( ! $APP_KEY) throw new Exception('APP_KEY is required.');
+        if( ! in_array($HASH_ALGO, hash_hmac_algos()))
+            throw new Exception('Unsupported hash algorithm(' . $HASH_ALGO . ')');
 
         $this->label = $label;
         $this->ip = $ip;
         $this->APP_KEY = $APP_KEY;
         $this->KEY_LENGTH = $KEY_LENGTH;
         $this->HASH_ALGO = $HASH_ALGO;
-        $this->HASH_LENGTH = strlen(hash($HASH_ALGO, ''));
         $this->hashed_public_key = $hashed_public_key;
         $this->data = $data;
 
@@ -43,11 +42,12 @@ class Key
             APP_KEY: $this->APP_KEY,
             HASH_ALGO: $this->HASH_ALGO,
         );
-        $this->data = uniqid(bin2hex(random_bytes(random_int(1, $this->KEY_LENGTH)))) .
-                $this->hashed_public_key .
-                $this->random_key() .
-                uniqid(bin2hex(random_bytes(random_int(1, $this->KEY_LENGTH))))
-                ;
+        $data = uniqid(bin2hex(random_bytes(random_int(1, $this->KEY_LENGTH))))
+            . $this->hashed_public_key
+            . $this->random_key()
+            . uniqid(bin2hex(random_bytes(random_int(1, $this->KEY_LENGTH))))
+            ;
+        $this->data = $data;
     }
 
     private function random_key() : string
@@ -70,11 +70,11 @@ class Key
         string $HASH_ALGO = 'sha3-384',
     ) : string
     {
-    if(self::$debug){
-            echo('get_defined_vars: ' . PHP_EOL);
-            var_dump(get_defined_vars());
-        }
-        return hash_hmac($HASH_ALGO, $text, $APP_KEY, false);
+        if(self::$debug){
+                echo('get_defined_vars: ' . PHP_EOL);
+                var_dump(get_defined_vars());
+            }
+            return hash_hmac($HASH_ALGO, $text, $APP_KEY, false);
     }
 
     public function token() : string
@@ -116,7 +116,7 @@ class Key
             HASH_ALGO: $this->HASH_ALGO,
         );
 
-        if(! $parsed) return false;
+        if( ! $parsed) return false;
 
         list($public_key, $shared_key) = $parsed;
 
@@ -172,11 +172,11 @@ class Key
                 if($debug) var_dump($key);
                 $token = $key->token();
                 if($debug) var_dump($token);
-                assert(! empty($token));
+                assert( ! empty($token));
                 assert($key->valid($token));
-                assert(! $key->valid($token . 'x'));
-                assert(! $key->valid('x'));
-                assert(! $key->valid(''));
+                assert( ! $key->valid($token . 'x'));
+                assert( ! $key->valid('x'));
+                assert( ! $key->valid(''));
                 $key2 = Key::create(
                     hashed_public_key: $key->hashed_public_key,
                     data: $key->data,
@@ -205,21 +205,21 @@ class ApiKeyMemory extends Key
 {
     private static $memory = [];
 
-    private static function save(string $hashed_public_key, string $data) : bool
+    protected static function save(string $hashed_public_key, string $data) : bool
     {
         self::$memory[$hashed_public_key] = $data;
         return true;
     }
 
-    private static function load(string $hashed_public_key)
+    protected static function load(string $hashed_public_key)
     {
         return self::$memory[$hashed_public_key] ?? NULL;
     }
 
     public static function make(
         string $label,
-        string $APP_KEY,
         string $ip = '',
+        string $APP_KEY = APP_KEY,
         int $KEY_LENGTH = 33,
         string $HASH_ALGO = 'sha3-384',
     ) : string
@@ -235,7 +235,7 @@ class ApiKeyMemory extends Key
             KEY_LENGTH: $KEY_LENGTH,
             HASH_ALGO: $HASH_ALGO,
         );
-        assert(self::save($key->hashed_public_key, $key->data));
+        assert(static::save($key->hashed_public_key, $key->data));
         if(self::$debug){
             echo('=================================================' . PHP_EOL);
             echo("SAVE hashed_public_key: ({$key->hashed_public_key})" . PHP_EOL);
@@ -251,7 +251,7 @@ class ApiKeyMemory extends Key
 
     public static function check(
         string $token,
-        string $APP_KEY,
+        string $APP_KEY = APP_KEY,
         int $KEY_LENGTH = 33,
         string $HASH_ALGO = 'sha3-384',
     ) : bool
@@ -274,7 +274,7 @@ class ApiKeyMemory extends Key
             APP_KEY: $APP_KEY,
             HASH_ALGO: $HASH_ALGO,
         );
-        $data = self::load($hashed_public_key);
+        $data = static::load($hashed_public_key);
         if(self::$debug){
             echo('=================================================' . PHP_EOL);
             echo("LOAD hashed_public_key: ($hashed_public_key)" . PHP_EOL);
@@ -296,7 +296,7 @@ class ApiKeyMemory extends Key
             HASH_ALGO: $HASH_ALGO,
         );
 
-        if(!$key) return false;
+        if( ! $key) return false;
         return $key->valid($token);
     }
 
@@ -309,10 +309,55 @@ class ApiKeyMemory extends Key
             APP_KEY: $APP_KEY,
             ip: '127.0.0.1',
         );
-        assert(! empty($token));
+        assert( ! empty($token));
         assert(self::check($token, APP_KEY: $APP_KEY));
         assert( ! self::check('', APP_KEY: $APP_KEY));
         assert( ! self::check('123', APP_KEY: $APP_KEY));
     }
 }
+
+class ApiKeyFS extends ApiKeyMemory
+{
+    private static function path(string $file) : string
+    {
+        $path = defined('API_KEY_PATH') ? API_KEY_PATH : '.tmp';
+        $path .= DIRECTORY_SEPARATOR . 'api_key' . DIRECTORY_SEPARATOR;
+        @mkdir($path, permissions: 0700, recursive: true);
+        return $path . DIRECTORY_SEPARATOR . $file;
+    }
+
+    protected static function save(string $hashed_public_key, string $data) : bool
+    {
+        return file_put_contents(self::path($hashed_public_key), $data) !== false;
+    }
+
+    protected static function load(string $hashed_public_key)
+    {
+        $data = file_get_contents(self::path($hashed_public_key));
+        return empty($data) ? NULL : $data;
+    }
+
+    public static function test(bool $debug = false)
+    {
+        define('API_KEY_PATH', 'tmp');
+        define('APP_KEY', '94473B99-23CB-4A4D-A315-C0F9B8C9B39A');
+        self::$debug = $debug;
+        $token = self::make(
+            label: 'x',
+            ip: '127.0.0.1',
+        );
+        assert( ! empty($token));
+        assert(self::check($token));
+        assert( ! self::check(''));
+        assert( ! self::check('123'));
+    }
+}
+
+if(defined('API_KEY_LIB')) return;
+
+Key::test(true);
+ApiKeyMemory::test(true);
+ApiKeyFS::test(true);
+
+echo('ok' . PHP_EOL);
 ?>
