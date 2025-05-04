@@ -12,6 +12,7 @@ class Key
     public string $hashed_public_key;
     public string $label;
     public string $ip;
+    public static bool $debug = false;
 
     public function __construct(
         string $label,
@@ -69,12 +70,16 @@ class Key
         string $HASH_ALGO = 'sha3-384',
     ) : string
     {
+    if(self::$debug){
+            echo('get_defined_vars: ' . PHP_EOL);
+            var_dump(get_defined_vars());
+        }
         return hash_hmac($HASH_ALGO, $text, $APP_KEY, false);
     }
 
     public function token() : string
     {
-        assert(!empty($this->public_key));
+        assert( ! empty($this->public_key));
         return $this->public_key . self::hmac(
             text: $this->private_key(),
             APP_KEY: $this->APP_KEY,
@@ -88,7 +93,7 @@ class Key
         string $HASH_ALGO = 'sha3-384',
     ) : array
     {
-        if(!in_array($HASH_ALGO, hash_hmac_algos())) throw new Exception('Unsupported hash algorithm(' . $HASH_ALGO . ')');
+        if( ! in_array($HASH_ALGO, hash_hmac_algos())) throw new Exception('Unsupported hash algorithm(' . $HASH_ALGO . ')');
 
         $HASH_LENGTH = strlen(hash($HASH_ALGO, ''));
         if(strlen($token) !== $HASH_LENGTH + ($KEY_LENGTH * 2))
@@ -105,7 +110,7 @@ class Key
 
     public function valid(string $token) : bool
     {
-        $parsed = $this->parse(
+        $parsed = self::parse(
             token: $token,
             KEY_LENGTH: $this->KEY_LENGTH,
             HASH_ALGO: $this->HASH_ALGO,
@@ -180,17 +185,17 @@ class Key
                     HASH_ALGO: $algo,
                 );
                 if($debug) var_dump($key2);
-                assert(! empty($key2));
+                assert( ! empty($key2));
                 $failed = false;
                 try{
                     //$key2->token();
                 }catch(Exception $ex) { $failed = true; }
                 //assert($failed);
                 assert($key2->valid($token));
-                assert(! $key2->valid($token . 'y'));
-                assert(! $key2->valid('y'));
-                assert(! $key2->valid(''));
-                assert(! empty($token));
+                assert( ! $key2->valid($token . 'y'));
+                assert( ! $key2->valid('y'));
+                assert( ! $key2->valid(''));
+                assert( ! empty($token));
             }
         }
     }
@@ -198,7 +203,6 @@ class Key
 
 class ApiKeyMemory extends Key
 {
-    public static $debug = false;
     private static $memory = [];
 
     private static function save(string $hashed_public_key, string $data) : bool
@@ -220,6 +224,10 @@ class ApiKeyMemory extends Key
         string $HASH_ALGO = 'sha3-384',
     ) : string
     {
+        if(self::$debug){
+            echo('=================================================' . PHP_EOL);
+            echo("MAKE(token)" . PHP_EOL);
+        }
         $key = new self(
             label: $label . '@' . date('Y-m-d H:i:s'),
             ip: $ip,
@@ -230,7 +238,8 @@ class ApiKeyMemory extends Key
         assert(self::save($key->hashed_public_key, $key->data));
         if(self::$debug){
             echo('=================================================' . PHP_EOL);
-            echo("SAVE ({$key->hashed_public_key})" . PHP_EOL);
+            echo("SAVE hashed_public_key: ({$key->hashed_public_key})" . PHP_EOL);
+            echo("- public_key: ({$key->public_key})" . PHP_EOL);
             echo('------------------------- [DATA] ------------------------' . PHP_EOL);
             var_dump($key->data);
             echo('------------------------- [MEMORY] ------------------------' . PHP_EOL);
@@ -247,13 +256,16 @@ class ApiKeyMemory extends Key
         string $HASH_ALGO = 'sha3-384',
     ) : bool
     {
-        if(self::$debug) echo("CHECK(token: $token)" . PHP_EOL);
+        if(self::$debug){
+            echo('=================================================' . PHP_EOL);
+            echo("CHECK(token: $token)" . PHP_EOL);
+        }
         $parsed = self::parse(
             token: $token,
             KEY_LENGTH: $KEY_LENGTH,
             HASH_ALGO: $HASH_ALGO,
         );
-        if(! $parsed) return false;
+        if( ! $parsed) return false;
 
         list($public_key, $shared_key) = $parsed;
 
@@ -275,12 +287,10 @@ class ApiKeyMemory extends Key
             var_dump(self::$memory);
             echo('-------------------------------------------------' . PHP_EOL);
         }
-        assert(! empty($data));
+        assert( ! empty($data));
         $key = self::create(
             hashed_public_key: $hashed_public_key,
             data: $data,
-            label: '',
-            ip: '',
             APP_KEY: $APP_KEY,
             KEY_LENGTH: $KEY_LENGTH,
             HASH_ALGO: $HASH_ALGO,
@@ -294,19 +304,15 @@ class ApiKeyMemory extends Key
     {
         $APP_KEY = '65162b0b-784d-4e15-88b4-459d5caadf3f';
         self::$debug = $debug;
-        $token = self::make('x', '127.0.0.1', $APP_KEY);
+        $token = self::make(
+            label: 'x',
+            APP_KEY: $APP_KEY,
+            ip: '127.0.0.1',
+        );
         assert(! empty($token));
-        if($debug){
-            echo("CREATE(token: $token)" . PHP_EOL);
-            var_dump($token);
-        }
         assert(self::check($token, APP_KEY: $APP_KEY));
-        assert(! self::check('', APP_KEY: $APP_KEY));
-        assert(! self::check('123', APP_KEY: $APP_KEY));
+        assert( ! self::check('', APP_KEY: $APP_KEY));
+        assert( ! self::check('123', APP_KEY: $APP_KEY));
     }
 }
-
-Key::test(true);
-//ApiKeyMemory::test(true);
-
 ?>
