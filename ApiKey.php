@@ -382,11 +382,14 @@ class CLI
         echo "  help      Display this help message.\n";
         echo "\n";
         echo "Options:\n";
-        echo "  --app-key=<app-key>     Application key (always required).\n";
-        echo "  --path=<api-keys-path>  API Keys storage path (always required).\n";
-        echo "  --label=<label>         Label for the API key (required for generate).\n";
-        echo "  --ip=<ip>               IP address of the client (optional for generate).\n";
-        echo "  --token=<token>         The API key token to check (required for check).\n";
+        echo "  --app-key=<app-key>         Application key (always required).\n";
+        echo "  --path=<api-keys-path>      API Keys storage path (always required).\n";
+        echo "  --label=<label>             Label for the API key (required for generate).\n";
+        echo "  --ip=<ip>                   IP address of the client (optional for generate).\n";
+        echo "  --token=<token>             The API key token to check (required for check).\n";
+        echo "  --key-length=<key-length>   The size of key building block (optional: default 33).\n";
+        echo "  --algo=<algo>               The algorithm used for hmac hashing (optional: default sha3-384). See `hash_hmac_algos()` for supported algorithms.\n";
+        echo "  --verbose                   Print verbose messages (optional: false).\n";
         echo "\n";
         echo "Example:\n";
         echo "  php {$argv[0]} generate --app-key=abc-def-ghi --path=tmp --label=my-app --ip=192.168.1.100\n";
@@ -412,6 +415,7 @@ class CLI
                 // Handle non-option arguments if needed
             }
         }
+        if(! in_array('verbose', self::$options)) self::$options['verbose'] = false;
     }
 
     public static function handle_generate()
@@ -433,10 +437,15 @@ class CLI
             }
         }
 
+        $verbose = self::$options['verbose'];
         $app_key = self::$options['app-key'];
         $path = self::$options['path'];
         $label = self::$options['label'];
         $ip = isset(self::$options['ip']) ? self::$options['ip'] : '';
+        $key_length = isset(self::$options['key-length']) ? self::$options['key-length'] : 33;
+        $algo = isset(self::$options['algo']) ? self::$options['algo'] : 'sha3-384';
+
+        $key_length = is_int($key_length) && $key_length > 1 ? $key_length : 33;
 
         try {
             define('API_KEY_PATH', $path);
@@ -444,11 +453,13 @@ class CLI
             $token = ApiKeyFS::make(
                 label: $label,
                 ip: $ip,
+                KEY_LENGTH: $key_length,
+                HASH_ALGO: $algo,
             );
-            // echo "Generated API Key Token:\n";
+            if($verbose) echo "Generated API Key Token:\n";
             echo $token;
-            // echo "\n";
-            // echo "Key stored in: " . API_KEY_PATH . "\n";
+            if($verbose) echo "\n";
+            if($verbose) echo "Key stored in: " . API_KEY_PATH . "\n";
         } catch (Exception $e) {
             echo "Error: " . $e->getMessage() . "\n";
             exit(1);
@@ -477,11 +488,19 @@ class CLI
         $app_key = self::$options['app-key'];
         $path = self::$options['path'];
         $token = self::$options['token'];
+        $key_length = isset(self::$options['key-length']) ? self::$options['key-length'] : 33;
+        $algo = isset(self::$options['algo']) ? self::$options['algo'] : 'sha3-384';
+
+        $key_length = is_int($key_length) && $key_length > 1 ? $key_length : 33;
 
         try {
             define('API_KEY_PATH', $path);
             define('APP_KEY', $app_key);
-            $isValid = ApiKeyFS::check($token);
+            $isValid = ApiKeyFS::check(
+                token: $token,
+                KEY_LENGTH: $key_length,
+                HASH_ALGO: $algo,
+            );
             echo "API Key Token is " . ($isValid ? "valid" : "invalid") . ".\n";
         } catch (Exception $e) {
             echo "Error: " . $e->getMessage() . "\n";
@@ -491,10 +510,11 @@ class CLI
 
     public static function handle_test()
     {
-        Key::test(true);
-        ApiKeyMemory::test(true);
-        ApiKeyFS::test(true);
-        CLI::test(true);
+        $verbose = self::$options['verbose'];
+        Key::test(debug: $verbose);
+        ApiKeyMemory::test(debug: $verbose);
+        ApiKeyFS::test(debug: $verbose);
+        CLI::test(debug: $verbose);
         echo('ok' . PHP_EOL);
     }
 
