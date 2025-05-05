@@ -125,6 +125,15 @@ class Key
         );
     }
 
+    public function dict()
+    {
+        return [
+            'label' => $this->label,
+            'ip' => $this->ip,
+            'data' => $this->data,
+        ];
+    }
+
     public static function create(
         string $hashed_public_key,
         string $data,
@@ -200,9 +209,9 @@ class ApiKeyMemory extends Key
 {
     private static $memory = [];
 
-    protected static function save(string $hashed_public_key, string $data) : bool
+    protected static function save(string $hashed_public_key, Key $key) : bool
     {
-        self::$memory[$hashed_public_key] = $data;
+        self::$memory[$hashed_public_key] = $key->dict();
         return true;
     }
 
@@ -230,7 +239,7 @@ class ApiKeyMemory extends Key
             KEY_LENGTH: $KEY_LENGTH,
             HASH_ALGO: $HASH_ALGO,
         );
-        assert(static::save($key->hashed_public_key, $key->data));
+        assert(static::save($key->hashed_public_key, $key));
         if(self::$debug){
             echo('=================================================' . PHP_EOL);
             echo("SAVE hashed_public_key: ({$key->hashed_public_key})" . PHP_EOL);
@@ -269,7 +278,8 @@ class ApiKeyMemory extends Key
             APP_KEY: $APP_KEY,
             HASH_ALGO: $HASH_ALGO,
         );
-        $data = static::load($hashed_public_key);
+        $key_dict = static::load($hashed_public_key);
+        $data = $key_dict['data'];
         if(self::$debug){
             echo('=================================================' . PHP_EOL);
             echo("LOAD hashed_public_key: ($hashed_public_key)" . PHP_EOL);
@@ -284,6 +294,8 @@ class ApiKeyMemory extends Key
         }
         assert( ! empty($data));
         $key = self::create(
+            label: $key_dict['label'],
+            ip: $key_dict['ip'],
             hashed_public_key: $hashed_public_key,
             data: $data,
             APP_KEY: $APP_KEY,
@@ -321,15 +333,18 @@ class ApiKeyFS extends ApiKeyMemory
         return $path . DIRECTORY_SEPARATOR . $file;
     }
 
-    protected static function save(string $hashed_public_key, string $data) : bool
+    protected static function save(string $hashed_public_key, Key $key) : bool
     {
-        return file_put_contents(self::path($hashed_public_key), $data) !== false;
+        return file_put_contents(
+            self::path($hashed_public_key),
+            json_encode($key->dict()),
+        ) !== false;
     }
 
     protected static function load(string $hashed_public_key)
     {
         $data = file_get_contents(self::path($hashed_public_key));
-        return empty($data) ? NULL : $data;
+        return empty($data) ? NULL : json_decode($data, associative: true);
     }
 
     public static function test(bool $debug = false)
@@ -388,6 +403,9 @@ class CLI
                 $parts = explode('=', substr($arg, 2), 2);
                 $key = $parts[0];
                 $value = isset($parts[1]) ? $parts[1] : true; // Allow boolean flags
+                if(! is_bool($value)){
+                    if(empty(trim($value))) continue;
+                }
                 self::$options[$key] = $value;
             } else {
                 // Handle non-option arguments if needed
@@ -397,25 +415,25 @@ class CLI
 
     public static function handle_generate()
     {
-        if (!isset(self::$options['app-key'])) {
-            echo "Error: The --app-key option is required for the generate command.\n";
-            self::display_help();
-            exit(1);
+        foreach([
+            'app-key' => "Error: The --app-key option is required for the generate command.",
+            'path' => "Error: The --path option is required for the generate command.",
+            'label' => "Error: The --label option is required for the generate command.",
+        ] as $option => $message){
+            if (!isset(self::$options[$option])) {
+                echo $message . PHP_EOL;
+                self::display_help();
+                exit(1);
+            }
+            if (is_bool(self::$options[$option])) {
+                echo $message . PHP_EOL;
+                self::display_help();
+                exit(1);
+            }
         }
+
         $app_key = self::$options['app-key'];
-
-        if (!isset(self::$options['path'])) {
-            echo "Error: The --path option is required for the generate command.\n";
-            self::display_help();
-            exit(1);
-        }
         $path = self::$options['path'];
-
-        if (!isset(self::$options['label'])) {
-            echo "Error: The --label option is required for the generate command.\n";
-            self::display_help();
-            exit(1);
-        }
         $label = self::$options['label'];
         $ip = isset(self::$options['ip']) ? self::$options['ip'] : '';
 
@@ -438,25 +456,25 @@ class CLI
 
     public static function handle_check()
     {
-        if (!isset(self::$options['app-key'])) {
-            echo "Error: The --app-key option is required for the generate command.\n";
-            self::display_help();
-            exit(1);
+        foreach([
+            'app-key' => "Error: The --app-key option is required for the check command.",
+            'path' => "Error: The --path option is required for the check command.",
+            'token' => "Error: The --token option is required for the check command.",
+        ] as $option => $message){
+            if (!isset(self::$options[$option])) {
+                echo $message . PHP_EOL;
+                self::display_help();
+                exit(1);
+            }
+            if (is_bool(self::$options[$option])) {
+                echo $message . PHP_EOL;
+                self::display_help();
+                exit(1);
+            }
         }
+
         $app_key = self::$options['app-key'];
-
-        if (!isset(self::$options['path'])) {
-            echo "Error: The --path option is required for the generate command.\n";
-            self::display_help();
-            exit(1);
-        }
         $path = self::$options['path'];
-
-        if (!isset(self::$options['token'])) {
-            echo "Error: The --token option is required for the check command.\n";
-            self::display_help();
-            exit(1);
-        }
         $token = self::$options['token'];
 
         try {
@@ -494,7 +512,26 @@ class CLI
 
     public static function test(bool $debug = false)
     {
-        // generate
+        // bad generate
+        foreach([
+            'php ApiKey.php generate' => "Error: The --app-key option is required for the generate command.",
+            'php ApiKey.php generate --app-key' => "Error: The --app-key option is required for the generate command.",
+            'php ApiKey.php generate --app-key=' => "Error: The --app-key option is required for the generate command.",
+            'php ApiKey.php generate --app-key=abc-def-ghi' => "Error: The --path option is required for the generate command.",
+            'php ApiKey.php generate --app-key=abc-def-ghi --path=tmp' => "Error: The --label option is required for the generate command.",
+        ] as $command => $message){
+            $output = [];
+            $return_var = 0;
+            if($debug) echo "Command: $command\n";
+            exec($command, $output, $return_var);
+            if($debug) var_dump(['return_var' => $return_var, 'output' => $output]);
+            assert($return_var === 1);
+            assert($output);
+            assert(count($output) > 1);
+            assert($output[0] === $message);
+        }
+
+        // good generate
         $output = [];
         $return_var = 0;
         $command = 'php ApiKey.php generate --app-key=abc-def-ghi --path=tmp --label=my-app --ip=192.168.1.100';
@@ -504,8 +541,28 @@ class CLI
         assert($return_var === 0);
         assert(count($output) === 1);
         $token = $output[0];
-        
-        // check vaild
+
+        // bad check
+        foreach([
+            'php ApiKey.php check' => "Error: The --app-key option is required for the check command.",
+            'php ApiKey.php check --app-key' => "Error: The --app-key option is required for the check command.",
+            'php ApiKey.php check --app-key=' => "Error: The --app-key option is required for the check command.",
+            'php ApiKey.php check --app-key=abc-def-ghi' => "Error: The --path option is required for the check command.",
+            'php ApiKey.php check --app-key=abc-def-ghi --path=tmp' => "Error: The --token option is required for the check command.",
+        ] as $command => $message){
+            $output = [];
+            $return_var = 0;
+            if($debug) echo "Command: $command\n";
+            exec($command, $output, $return_var);
+            if($debug) var_dump(['return_var' => $return_var, 'output' => $output]);
+            assert($return_var === 1);
+            if($debug) var_dump($output);
+            assert($output);
+            assert(count($output) > 1);
+            assert($output[0] === $message);
+        }
+
+        // good check vaild
         $output = [];
         $command = 'php ApiKey.php check --app-key=abc-def-ghi --path=tmp --token=' . $token;
         $return_var = 0;
@@ -516,7 +573,7 @@ class CLI
         if($debug) var_dump($output);
         assert(count($output) === 1);
         assert(in_array('API Key Token is valid.', $output));
-        
+
         // check invalid
         $output = [];
         $return_var = 0;
