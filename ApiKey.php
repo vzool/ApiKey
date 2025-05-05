@@ -32,7 +32,7 @@ class Key
         if($hashed_public_key || $data) return;
 
         $this->public_key = $this->random_key();
-        $private_key = $this->random_key();
+        $private_key = $this->random_key() . $this->random_key();
         $this->hashed_public_key = self::hmac(
             text: $this->public_key,
             APP_KEY: $this->APP_KEY,
@@ -63,7 +63,7 @@ class Key
                 ],
             ]);
         }
-        // assert(strlen($this->data) >= $this->KEY_LENGTH * 4); // !!!
+        assert(strlen($this->data) >= $this->KEY_LENGTH * 4); // !!!
         $x = explode($this->hashed_public_key, $this->data);
         $y = substr($x[1], 0, $this->KEY_LENGTH * 2);
         if(static::$debug){
