@@ -1,6 +1,14 @@
 #!/usr/bin/env php
 <?php declare(strict_types=1);
 
+/**
+ * Defines the current version of the API key management tool.
+ *
+ * This constant is used to track the software's version and may be displayed
+ * in help messages or used for internal version checking.
+ *
+ * @const string API_KEY_VERSION The current version string (e.g., '1.0.0').
+ */
 define('API_KEY_VERSION', '0.0.1');
 
 /**
