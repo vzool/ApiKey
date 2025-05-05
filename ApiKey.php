@@ -63,7 +63,7 @@ class Key
                 ],
             ]);
         }
-        assert(strlen($this->data) >= $this->KEY_LENGTH * 4); // !!!
+        assert(strlen($this->data) >= $this->KEY_LENGTH * 4);
         $x = explode($this->hashed_public_key, $this->data);
         $y = substr($x[1], 0, $this->KEY_LENGTH * 2);
         if(static::$debug){
@@ -630,6 +630,7 @@ class CLI
         assert($return_var === 0);
         assert(count($output) === 1);
         $token = $output[0];
+        assert( ! empty($token));
 
         // bad check
         foreach([

@@ -195,3 +195,83 @@ Key::$debug = true; # core
 ApiKeyMemory::$debug = true; # memory storage
 ApiKeyFS::$debug = true; # filesystem storage
 ```
+
+## CLI Class
+
+This PHP class provides a command-line interface for generating and checking API keys.
+
+## Commands
+
+* **`generate`**: Generate a new API key and store it.
+* **`check`**: Check the validity of an API key.
+* **`test`**: Run the internal tests.
+* **`help`**: Display this help message.
+
+## Options
+
+| Option                     | Description                                               | Required for `generate` | Required for `check` | Default Value |
+| :------------------------- | :-------------------------------------------------------- | :--------------------: | :-------------------: | :------------: |
+| `--app-key=<app-key>`      | Application key.                                        |          Yes           |          Yes          |       -       |
+| `--path=<api-keys-path>`   | API Keys storage path.                                  |          Yes           |          Yes          |       -       |
+| `--label=<label>`          | Label for the API key.                                  |          Yes           |           No          |       -       |
+| `--ip=<ip>`                | IP address of the client.                               |           No           |           No          |      ''       |
+| `--token=<token>`          | The API key token to check.                             |           No           |          Yes          |       -       |
+| `--key-length=<key-length>`| The size of key building block.                         |           No           |           No          |       33      |
+| `--algo=<algo>`            | The algorithm used for HMAC hashing. See `hash_hmac_algos()` for supported algorithms. |           No           |           No          |   `sha3-384`  |
+| `--verbose`                | Print verbose messages.   
+
+### Examples
+
+#### Generating an API Key
+
+To generate a new API key with a label, application key, and storage path:
+
+```bash
+php ApiKey.php generate --app-key=your-app-identifier --path=/path/to/store/keys --label=my-service
+```
+
+You can also specify an IP address for the key:
+
+```bash
+php ApiKey.php generate --app-key=your-app-identifier --path=/path/to/store/keys --label=user-123 --ip=192.168.1.100
+```
+
+To customize the key length and hashing algorithm:
+
+```bash
+php ApiKey.php generate --app-key=your-app-identifier --path=/path/to/store/keys --label=admin-key --key-length=64 --algo=sha512
+```
+
+Use the `--verbose` flag for more output:
+
+```bash
+php ApiKey.php generate --app-key=your-app-identifier --path=/path/to/store/keys --label=debug-key --verbose
+```
+
+### Checking an API Key
+
+To check the validity of an API key token:
+
+```bash
+php ApiKey.php check --app-key=your-app-identifier --path=/path/to/store/keys --token=the-api-key-token-here
+```
+
+You can also specify a custom key length and algorithm if the key was generated with different settings:
+
+```bash
+php ApiKey.php check --app-key=your-app-identifier --path=/path/to/store/keys --token=the-api-key-token-here --key-length=64 --algo=sha512
+```
+
+### Running Tests
+
+To run the internal tests:
+
+```bash
+php ApiKey.php test
+```
+
+For verbose test output:
+
+```bash
+php ApiKey.php test --verbose
+```
