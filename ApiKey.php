@@ -501,7 +501,7 @@ class CLI
     public static function run()
     {
         global $argv;
-        $command = $argv[1];
+        $command = $argv[1] ?? NULL;
         self::parse();
         switch ($command) {
             case 'generate':

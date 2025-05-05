@@ -168,13 +168,7 @@ require_once 'ApiKey.php';
 ### Testing
 
 ```shell
-php ApiKey.php
-```
-
-OR
-
-```php
-<?php require_once 'ApiKey.php'; ?>
+php ApiKey.php test
 ```
 
 ### Security Considerations
