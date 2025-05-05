@@ -378,6 +378,7 @@ class CLI
         echo "Commands:\n";
         echo "  generate  Generate a new API key and store it.\n";
         echo "  check     Check the validity of an API key.\n";
+        echo "  test      Run the tests.\n";
         echo "  help      Display this help message.\n";
         echo "\n";
         echo "Options:\n";
@@ -488,11 +489,18 @@ class CLI
         }
     }
 
+    public static function handle_test()
+    {
+        Key::test(true);
+        ApiKeyMemory::test(true);
+        ApiKeyFS::test(true);
+        CLI::test(true);
+        echo('ok' . PHP_EOL);
+    }
+
     public static function run()
     {
         global $argv;
-        $cli = count($argv) > 1;
-        if( ! $cli) return;
         $command = $argv[1];
         self::parse();
         switch ($command) {
@@ -501,6 +509,9 @@ class CLI
                 break;
             case 'check':
                 self::handle_check();
+                break;
+            case 'test':
+                self::handle_test();
                 break;
             case 'help':
             default:
@@ -589,11 +600,4 @@ class CLI
 }
 
 CLI::run();
-
-Key::test(true);
-ApiKeyMemory::test(true);
-ApiKeyFS::test(true);
-CLI::test(true);
-
-echo('ok' . PHP_EOL);
 ?>

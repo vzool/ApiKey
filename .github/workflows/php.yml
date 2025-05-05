@@ -33,4 +33,4 @@ jobs:
           coverage: xdebug
 
       - name: Test
-        run: php ApiKey.php
+        run: php ApiKey.php test
