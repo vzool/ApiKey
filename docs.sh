@@ -1,4 +1,4 @@
 #!/bin/bash
 
-rm -rf .phpdoc ./docs/api
-./phpDocumentor.phar -v -f ApiKey.php -t ./docs/api
+rm -rf .phpdoc ./docs
+./phpDocumentor.phar -v -f ApiKey.php -t ./docs
