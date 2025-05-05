@@ -32,15 +32,16 @@ class Key
         if($hashed_public_key || $data) return;
 
         $this->public_key = $this->random_key();
+        $private_key = $this->random_key();
         $this->hashed_public_key = self::hmac(
             text: $this->public_key,
             APP_KEY: $this->APP_KEY,
             HASH_ALGO: $this->HASH_ALGO,
         );
-        $data = uniqid(bin2hex(random_bytes(random_int(1, $this->KEY_LENGTH))))
+        $data = bin2hex(random_bytes(random_int(1, $this->KEY_LENGTH)))
             . $this->hashed_public_key
-            . $this->random_key()
-            . uniqid(bin2hex(random_bytes(random_int(1, $this->KEY_LENGTH))))
+            . $private_key
+            . bin2hex(random_bytes(random_int(1, $this->KEY_LENGTH)))
             ;
         $this->data = $data;
     }
@@ -52,11 +53,30 @@ class Key
 
     private function private_key()
     {
-        if(strlen($this->data) > $this->KEY_LENGTH * 4)
-        {
-            $y = explode($this->hashed_public_key, $this->data);
-            return substr($y[1], 0, $this->KEY_LENGTH * 2);
+        if(static::$debug){
+            echo 'private_key' . PHP_EOL;
+            var_dump([
+                'assert' => [
+                    'strlen' => strlen($this->data),
+                    'KEY_LENGTH * 4' => $this->KEY_LENGTH * 4,
+                    'result' => strlen($this->data) >= $this->KEY_LENGTH * 4,
+                ],
+            ]);
         }
+        // assert(strlen($this->data) >= $this->KEY_LENGTH * 4); // !!!
+        $x = explode($this->hashed_public_key, $this->data);
+        $y = substr($x[1], 0, $this->KEY_LENGTH * 2);
+        if(static::$debug){
+            var_dump([
+                'substr' => [
+                    $x[1],
+                    0,
+                    $this->KEY_LENGTH * 2,
+                ],
+                'result' => $y,
+            ]);
+        }
+        return $y;
     }
 
     public static function hmac(
@@ -66,7 +86,7 @@ class Key
     ) : string
     {
         if(self::$debug){
-            echo('get_defined_vars: ' . PHP_EOL);
+            echo('hmac[get_defined_vars]: ' . PHP_EOL);
             var_dump(get_defined_vars());
         }
         return hash_hmac($HASH_ALGO, $text, $APP_KEY, false);
@@ -95,7 +115,30 @@ class Key
             return [];
 
         $public_key = substr($token, 0, -$HASH_LENGTH);
-        $shared_key = substr($token, -$HASH_LENGTH, $HASH_LENGTH); // !!!
+        $public_key_length = strlen($public_key);
+        $shared_key = substr($token, $public_key_length, $HASH_LENGTH); // !!!
+
+        if(static::$debug){
+            echo 'parse' . PHP_EOL;
+            echo 'public_key' . PHP_EOL;
+            var_dump([
+                'substr' => [
+                    $token,
+                    0,
+                    -$HASH_LENGTH,
+                ],
+                'result' => $public_key,
+            ]);
+            echo 'shared_key' . PHP_EOL;
+            var_dump([
+                'substr' => [
+                    $token,
+                    $public_key_length,
+                    $HASH_LENGTH,
+                ],
+                'result' => $shared_key,
+            ]);
+        }
 
         return [
             $public_key,
@@ -131,6 +174,23 @@ class Key
             'label' => $this->label,
             'ip' => $this->ip,
             'data' => $this->data,
+        ];
+    }
+
+    public static function anatomy(string $token, Key $key)
+    {
+        $parsed = Key::parse(token: $token);
+        
+        list($public_key, $shared_key) = $parsed ?? [NULL, NULL];
+
+        return [
+            'token' => $token,
+            'public_key[0]' => $key->public_key,
+            'public_key[1]' => $public_key,
+            'shared_key' => $shared_key,
+            'hashed_public_key' => $key->hashed_public_key,
+            'data' => $key->data,
+            'valid' => $key->valid($token),
         ];
     }
 
@@ -363,8 +423,6 @@ class ApiKeyFS extends ApiKeyMemory
     }
 }
 
-if(defined('API_KEY_LIB')) return;
-
 class CLI
 {
     public static $options = [];
@@ -407,7 +465,7 @@ class CLI
                 $parts = explode('=', substr($arg, 2), 2);
                 $key = $parts[0];
                 $value = isset($parts[1]) ? $parts[1] : true; // Allow boolean flags
-                if(! is_bool($value)){
+                if( ! is_bool($value)){
                     if(empty(trim($value))) continue;
                 }
                 self::$options[$key] = $value;
@@ -415,7 +473,7 @@ class CLI
                 // Handle non-option arguments if needed
             }
         }
-        if(! in_array('verbose', self::$options)) self::$options['verbose'] = false;
+        if( ! in_array('verbose', self::$options)) self::$options['verbose'] = false;
     }
 
     public static function handle_generate()
@@ -425,7 +483,7 @@ class CLI
             'path' => "Error: The --path option is required for the generate command.",
             'label' => "Error: The --label option is required for the generate command.",
         ] as $option => $message){
-            if (!isset(self::$options[$option])) {
+            if ( ! isset(self::$options[$option])) {
                 echo $message . PHP_EOL;
                 self::display_help();
                 exit(1);
@@ -445,7 +503,7 @@ class CLI
         $key_length = isset(self::$options['key-length']) ? self::$options['key-length'] : 33;
         $algo = isset(self::$options['algo']) ? self::$options['algo'] : 'sha3-384';
 
-        $key_length = is_int($key_length) && $key_length > 1 ? $key_length : 33;
+        $key_length = is_int($key_length) && $key_length >= 1 ? $key_length : 33;
 
         try {
             define('API_KEY_PATH', $path);
@@ -473,7 +531,7 @@ class CLI
             'path' => "Error: The --path option is required for the check command.",
             'token' => "Error: The --token option is required for the check command.",
         ] as $option => $message){
-            if (!isset(self::$options[$option])) {
+            if ( ! isset(self::$options[$option])) {
                 echo $message . PHP_EOL;
                 self::display_help();
                 exit(1);
@@ -491,7 +549,7 @@ class CLI
         $key_length = isset(self::$options['key-length']) ? self::$options['key-length'] : 33;
         $algo = isset(self::$options['algo']) ? self::$options['algo'] : 'sha3-384';
 
-        $key_length = is_int($key_length) && $key_length > 1 ? $key_length : 33;
+        $key_length = is_int($key_length) && $key_length >= 1 ? $key_length : 33;
 
         try {
             define('API_KEY_PATH', $path);
@@ -619,5 +677,6 @@ class CLI
     }
 }
 
+if(defined('API_KEY_LIB')) return;
 CLI::run();
 ?>
