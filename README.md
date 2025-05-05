@@ -4,7 +4,7 @@
     <img src="https://github.com/vzool/ApiKey/actions/workflows/php.yml/badge.svg"/>
 </a>
 
-This library provides a simple and secure way to generate, store, and validate API keys. It supports storing keys in memory or in the file system.
+This library offers a simple and secure solution for API key management. It generates, stores, and validates keys in a way that prevents leakage and impersonation by avoiding a direct link between tokens and stored data. It supports storing keys in memory or in the file system.
 
 ## Core Class: `Key`
 
@@ -274,4 +274,12 @@ For verbose test output:
 
 ```bash
 php ApiKey.php test --verbose
+```
+
+### Getting Help
+
+To display the help message:
+
+```bash
+php ApiKey.php help
 ```

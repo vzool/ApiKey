@@ -3,11 +3,45 @@
 
 define('API_KEY_VERSION', '0.0.1');
 
+/**
+ * Class Key
+ * 
+ * Represents a cryptographic key with associated metadata and functionality
+ * for generating, validating, and parsing tokens.
+ */
 class Key
 {
+    /**
+     * The public key associated with this Key object.
+     *
+     * @var string
+     */
     public string $public_key;
+
+    /**
+     * A static flag to enable or disable debug output.
+     * Defaults to false.
+     *
+     * @var bool
+     */
     public static bool $debug = false;
 
+    /**
+     * Key constructor.
+     *
+     * Initializes a new Key object. If `$hashed_public_key` or `$data` are not provided,
+     * it generates a new public key, a corresponding hashed public key, and associated data.
+     *
+     * @param string $label A label for this key.
+     * @param string $ip The IP address associated with this key.
+     * @param string $APP_KEY The application-specific secret key used for hashing. This is required.
+     * @param int $KEY_LENGTH The length of the generated random keys in bytes. Defaults to 33.
+     * @param string $HASH_ALGO The hashing algorithm to use for HMAC. Defaults to 'sha3-384'.
+     * Must be a supported algorithm by `hash_hmac_algos()`.
+     * @param string $hashed_public_key An optional pre-computed hashed public key.
+     * @param string $data Optional pre-existing data associated with the key.
+     * @throws Exception If `$APP_KEY` is empty or if the `$HASH_ALGO` is not supported.
+     */
     public function __construct(
         public string $label,
         public string $ip,
@@ -46,11 +80,27 @@ class Key
         $this->data = $data;
     }
 
+    /**
+     * Generates a random key of the specified length.
+     *
+     * @return string A hexadecimal representation of the random key.
+     */
+
     private function random_key() : string
     {
         return bin2hex(random_bytes($this->KEY_LENGTH));
     }
 
+    /**
+     * Extracts the private key from the `$data` property.
+     *
+     * This function assumes that the `$data` property has a specific structure:
+     * random bytes (1 to KEY_LENGTH) + hashed public key + private key + random bytes (1 to KEY_LENGTH).
+     * It extracts the private key based on the position of the `$hashed_public_key`.
+     *
+     * @return string The extracted private key.
+     * @throws AssertionFailedError If the length of `$this->data` is less than four times `$this->KEY_LENGTH` in non-debug mode.
+     */
     private function private_key()
     {
         if(static::$debug){
@@ -79,6 +129,14 @@ class Key
         return $y;
     }
 
+    /**
+     * Computes the HMAC (Hash-based Message Authentication Code) of a given text.
+     *
+     * @param string $text The input string to hash.
+     * @param string $APP_KEY The secret key to use for the HMAC.
+     * @param string $HASH_ALGO The hashing algorithm to use. Defaults to 'sha3-384'.
+     * @return string The hexadecimal representation of the HMAC.
+     */
     public static function hmac(
         string $text,
         string $APP_KEY,
@@ -92,6 +150,12 @@ class Key
         return hash_hmac($HASH_ALGO, $text, $APP_KEY, false);
     }
 
+    /**
+     * Generates a token by concatenating the public key and the HMAC of the private key.
+     *
+     * @return string The generated token.
+     * @throws AssertionFailedError If `$this->public_key` is empty in non-debug mode.
+     */
     public function token() : string
     {
         assert( ! empty($this->public_key));
@@ -102,6 +166,16 @@ class Key
         );
     }
 
+    /**
+     * Parses a token to extract the public key and the shared key (HMAC of the private key).
+     *
+     * @param string $token The token to parse.
+     * @param int $KEY_LENGTH The expected length of the public key in bytes. Defaults to 33.
+     * @param string $HASH_ALGO The hashing algorithm that was used to generate the HMAC. Defaults to 'sha3-384'.
+     * @return array An array containing the public key (at index 0) and the shared key (at index 1),
+     * or an empty array if the token format is invalid or the hash algorithm is unsupported.
+     * @throws Exception If the `$HASH_ALGO` is not supported.
+     */
     public static function parse(
         string $token,
         int $KEY_LENGTH = 33,
@@ -146,6 +220,12 @@ class Key
         ];
     }
 
+    /**
+     * Validates a given token against the current Key object's private key and application key.
+     *
+     * @param string $token The token to validate.
+     * @return bool True if the token is valid, false otherwise.
+     */
     public function valid(string $token) : bool
     {
         $parsed = self::parse(
@@ -168,6 +248,11 @@ class Key
         );
     }
 
+    /**
+     * Returns an associative array representing the Key object's label, IP address, and data.
+     *
+     * @return array An associative array with keys 'label', 'ip', and 'data'.
+     */
     public function dict()
     {
         return [
@@ -177,6 +262,15 @@ class Key
         ];
     }
 
+    /**
+     * Analyzes a token and provides its anatomy in relation to a given Key object.
+     *
+     * @param string $token The token to analyze.
+     * @param Key $key The Key object to compare against.
+     * @return array An associative array containing the token, extracted public key, shared key,
+     * the Key object's public key and hashed public key, the Key object's data,
+     * and a boolean indicating if the token is valid for the given Key object.
+     */
     public static function anatomy(string $token, Key $key)
     {
         $parsed = Key::parse(token: $token);
@@ -194,6 +288,20 @@ class Key
         ];
     }
 
+    /**
+     * Creates a new Key object with pre-defined hashed public key and data.
+     *
+     * This static method is useful for reconstructing a Key object from stored data.
+     *
+     * @param string $hashed_public_key The pre-computed hashed public key.
+     * @param string $data The pre-existing data associated with the key.
+     * @param string $APP_KEY The application-specific secret key used for hashing.
+     * @param string $label An optional label for this key. Defaults to an empty string.
+     * @param string $ip The IP address associated with this key. Defaults to an empty string.
+     * @param int $KEY_LENGTH The length of the original random keys in bytes. Defaults to 33.
+     * @param string $HASH_ALGO The hashing algorithm used for HMAC. Defaults to 'sha3-384'.
+     * @return self A new Key object initialized with the provided data.
+     */
     public static function create(
         string $hashed_public_key,
         string $data,
@@ -215,6 +323,12 @@ class Key
         );
     }
 
+    /**
+     * Performs a series of tests to verify the functionality of the Key class.
+     *
+     * @param bool $debug If true, enables verbose output during the tests. Defaults to false.
+     * @return void
+     */
     public static function test(bool $debug = false)
     {
        $failed = false;
@@ -265,21 +379,57 @@ class Key
     }
 }
 
+/**
+ * Class ApiKeyMemory
+ *
+ * Extends the Key class to provide an in-memory storage mechanism for API keys.
+ * This class is primarily intended for development or testing environments
+ * where persistent storage is not required.
+ */
 class ApiKeyMemory extends Key
 {
+    /**
+     * @var array $memory
+     * A static array that holds the API keys in memory.
+     * The keys of this array are the hashed public keys, and the values
+     * are arrays representing the key data.
+     */
     private static $memory = [];
 
+    /**
+     * Saves a Key object's data into the in-memory storage.
+     *
+     * @param string $hashed_public_key The hashed version of the public key, used as the storage key.
+     * @param Key $key The Key object to save.
+     * @return bool Returns true if the key was successfully saved.
+     */
     protected static function save(string $hashed_public_key, Key $key) : bool
     {
         self::$memory[$hashed_public_key] = $key->dict();
         return true;
     }
 
+    /**
+     * Loads a key's data from the in-memory storage based on its hashed public key.
+     *
+     * @param string $hashed_public_key The hashed version of the public key to look up.
+     * @return array|null Returns an array containing the key's data if found, otherwise NULL.
+     */
     protected static function load(string $hashed_public_key)
     {
         return self::$memory[$hashed_public_key] ?? NULL;
     }
 
+    /**
+     * Generates a new API key, saves it in memory, and returns the token.
+     *
+     * @param string $label A descriptive label for the API key.
+     * @param string $ip The IP address associated with this key (optional, defaults to '').
+     * @param string $APP_KEY The application-specific secret key used for signing (defaults to the global APP_KEY constant).
+     * @param int $KEY_LENGTH The desired length of the public and private keys (defaults to 33).
+     * @param string $HASH_ALGO The hashing algorithm to use (defaults to 'sha3-384').
+     * @return string The generated API token.
+     */
     public static function make(
         string $label,
         string $ip = '',
@@ -313,6 +463,15 @@ class ApiKeyMemory extends Key
         return $key->token();
     }
 
+    /**
+     * Checks if a given API token is valid by retrieving the corresponding key from memory.
+     *
+     * @param string $token The API token to check.
+     * @param string $APP_KEY The application-specific secret key used for signing (defaults to the global APP_KEY constant).
+     * @param int $KEY_LENGTH The expected length of the public and private keys (defaults to 33).
+     * @param string $HASH_ALGO The hashing algorithm used (defaults to 'sha3-384').
+     * @return bool Returns true if the token is valid, false otherwise.
+     */
     public static function check(
         string $token,
         string $APP_KEY = APP_KEY,
@@ -367,6 +526,12 @@ class ApiKeyMemory extends Key
         return $key->valid($token);
     }
 
+    /**
+     * A static method for basic testing of the ApiKeyMemory class.
+     *
+     * @param bool $debug Enables or disables debug output (defaults to false).
+     * @return void
+     */
     public static function test(bool $debug = false)
     {
         $APP_KEY = '65162b0b-784d-4e15-88b4-459d5caadf3f';
@@ -383,8 +548,28 @@ class ApiKeyMemory extends Key
     }
 }
 
+/**
+ * class ApiKeyFS
+ * 
+ * Manages API keys, extending the in-memory storage with file system persistence.
+ *
+ * This class provides methods for saving, loading, and managing API keys,
+ * storing them as JSON files within a designated directory. It inherits
+ * functionality from `ApiKeyMemory`.
+ */
 class ApiKeyFS extends ApiKeyMemory
 {
+    /**
+     * Constructs the full path to the API key file.
+     *
+     * It checks if a constant `API_KEY_PATH` is defined; if so, it uses that
+     * as the base directory. Otherwise, it defaults to a `.tmp/api_keys` directory
+     * relative to the current working directory. It ensures the directory exists
+     * by creating it recursively if necessary.
+     *
+     * @param string $file The name of the file (which will be the hashed public key).
+     * @return string The full path to the API key file.
+     */
     protected static function path(string $file) : string
     {
         $path = defined('API_KEY_PATH') ? API_KEY_PATH : '.tmp';
@@ -393,6 +578,17 @@ class ApiKeyFS extends ApiKeyMemory
         return $path . DIRECTORY_SEPARATOR . $file;
     }
 
+    /**
+     * Saves an API key to the file system.
+     *
+     * The key's data (represented as an associative array from the `dict()` method
+     * of the `Key` object) is encoded as JSON and written to a file named after
+     * the hashed public key.
+     *
+     * @param string $hashed_public_key The hashed public key used as the filename.
+     * @param Key $key The `Key` object to be saved.
+     * @return bool True if the key was saved successfully, false otherwise.
+     */
     protected static function save(string $hashed_public_key, Key $key) : bool
     {
         return file_put_contents(
@@ -401,12 +597,31 @@ class ApiKeyFS extends ApiKeyMemory
         ) !== false;
     }
 
+    /**
+     * Loads an API key from the file system.
+     *
+     * Reads the JSON data from the file corresponding to the hashed public key
+     * and decodes it into an associative array.
+     *
+     * @param string $hashed_public_key The hashed public key used to determine the filename.
+     * @return array|null An associative array representing the API key data, or null if the file is empty or does not exist.
+     */
     protected static function load(string $hashed_public_key)
     {
         $data = file_get_contents(self::path($hashed_public_key));
         return empty($data) ? NULL : json_decode($data, associative: true);
     }
 
+    /**
+     * Performs a basic test of the API key functionality.
+     *
+     * This method defines constants for the API key path and application key,
+     * enables debugging if requested, creates a new API key, and then performs
+     * basic assertions to check if the key generation and validation work as expected.
+     *
+     * @param bool $debug Optional. If true, enables debugging output. Defaults to false.
+     * @return void
+     */
     public static function test(bool $debug = false)
     {
         define('API_KEY_PATH', 'tmp');
@@ -423,10 +638,38 @@ class ApiKeyFS extends ApiKeyMemory
     }
 }
 
+/**
+ * Class CLI
+ *
+ * Provides a command-line interface for generating and checking API keys.
+ *
+ * This class offers static methods to handle command-line arguments,
+ * display help information, and execute specific actions such as
+ * generating new API keys, checking the validity of existing keys,
+ * and running internal tests. It relies on the `ApiKeyFS` class for
+ * the underlying API key storage and validation logic.
+ */
 class CLI
 {
+    /**
+     * @var array $options An associative array to store parsed command-line options.
+     * The keys of the array are the option names (without the '--' prefix),
+     * and the values are the corresponding option values. Boolean flags
+     * will have a value of `true`.
+     */
     public static $options = [];
 
+    /**
+     * Displays the help message for the CLI tool.
+     *
+     * This function outputs the usage instructions, version information, available
+     * commands, and supported options to the console. It also provides examples
+     * of how to use the tool.
+     *
+     * @global array $argv The global array containing command-line arguments.
+     *
+     * @return void
+     */
     public static function display_help()
     {
         global $argv;
@@ -455,6 +698,20 @@ class CLI
         echo "  php {$argv[0]} help\n";
     }
 
+    /**
+     * Parses the command-line arguments and stores them in the `$options` array.
+     *
+     * This function iterates through the command-line arguments (excluding the
+     * script name and the command) and extracts options in the format `--key=value`
+     * or boolean flags like `--verbose`. The parsed options are stored as key-value
+     * pairs in the static `$options` array. If the `--verbose` option is not
+     * present, it defaults to `false`.
+     *
+     * @global array $argv The global array containing command-line arguments.
+     * @global int $argc The number of command-line arguments.
+     *
+     * @return void
+     */
     public static function parse()
     {
         global $argv, $argc;
@@ -476,6 +733,20 @@ class CLI
         if( ! in_array('verbose', self::$options)) self::$options['verbose'] = false;
     }
 
+    /**
+     * Handles the `generate` command to create and store a new API key.
+     *
+     * This function retrieves the required options (`--app-key`, `--path`, `--label`)
+     * from the `$options` array. It then defines the `API_KEY_PATH` and `APP_KEY`
+     * constants and calls the `ApiKeyFS::make()` method to generate and store
+     * the new API key. Optional parameters like `--ip`, `--key-length`, and
+     * `--algo` are also handled. If the `--verbose` option is enabled, additional
+     * information about the generated key and its storage location is printed.
+     * In case of any error during the key generation process, an error message
+     * is displayed, and the script exits with an error code.
+     *
+     * @return void
+     */
     public static function handle_generate()
     {
         foreach([
@@ -524,6 +795,19 @@ class CLI
         }
     }
 
+    /**
+     * Handles the `check` command to verify the validity of an API key.
+     *
+     * This function retrieves the required options (`--app-key`, `--path`, `--token`)
+     * from the `$options` array. It then defines the `API_KEY_PATH` and `APP_KEY`
+     * constants and calls the `ApiKeyFS::check()` method to validate the provided
+     * API key token. Optional parameters like `--key-length` and `--algo` are also
+     * handled. The function then prints whether the provided API key token is valid
+     * or invalid. In case of any error during the validation process, an error
+     * message is displayed, and the script exits with an error code.
+     *
+     * @return void
+     */
     public static function handle_check()
     {
         foreach([
@@ -566,6 +850,16 @@ class CLI
         }
     }
 
+    /**
+     * Handles the `test` command to run various tests.
+     *
+     * This function calls the `test()` methods of the `Key`, `ApiKeyMemory`,
+     * `ApiKeyFS`, and `CLI` classes. The verbosity of the test output can be
+     * controlled using the `--verbose` option. After all tests are executed,
+     * it prints "ok" to indicate successful completion.
+     *
+     * @return void
+     */
     public static function handle_test()
     {
         $verbose = self::$options['verbose'];
@@ -576,6 +870,19 @@ class CLI
         echo('ok' . PHP_EOL);
     }
 
+    /**
+     * Runs the CLI application.
+     *
+     * This is the main entry point for the CLI tool. It retrieves the command
+     * from the command-line arguments, parses the options, and then calls the
+     * appropriate handler function based on the provided command. If no command
+     * is provided or if the command is `help`, it calls the `display_help()`
+     * function. Finally, it exits with a success code (0).
+     *
+     * @global array $argv The global array containing command-line arguments.
+     *
+     * @return void
+     */
     public static function run()
     {
         global $argv;
@@ -599,6 +906,21 @@ class CLI
         exit(0);
     }
 
+    /**
+     * Runs tests specifically for the `CLI` class.
+     *
+     * This function performs various tests to ensure the correct behavior of the
+     * `CLI` class, including handling of missing required options for the `generate`
+     * and `check` commands, as well as successful execution of these commands.
+     * It uses the `exec()` function to simulate command-line calls and `assert()`
+     * to verify the expected output and return codes. The `$debug` parameter can
+     * be used to enable verbose output of the test execution.
+     *
+     * @param bool $debug Optional. If `true`, prints additional debugging information
+     * during the test execution. Defaults to `false`.
+     *
+     * @return void
+     */
     public static function test(bool $debug = false)
     {
         // bad generate
