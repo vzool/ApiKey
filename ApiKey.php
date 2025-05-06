@@ -1,15 +1,79 @@
 #!/usr/bin/env php
 <?php declare(strict_types=1);
 
-/**
- * Defines the current version of the API key management tool.
- *
- * This constant is used to track the software's version and may be displayed
- * in help messages or used for internal version checking.
- *
- * @const string API_KEY_VERSION The current version string (e.g., '1.0.0').
- */
 define('API_KEY_VERSION', '0.0.1');
+
+/**
+ * Encrypts a plain text string using a provided key.
+ *
+ * This function iterates through each character of the plain text, performs a bitwise XOR operation
+ * with the corresponding character in the key (repeating the key if necessary), and then converts
+ * the result to its hexadecimal representation.
+ * 
+ * * REF https://www.codecauldron.dev/2021/02/12/simple-xor-encryption-in-php/
+ *
+ * @param string $plainText The string to be encrypted.
+ * @param string $key       The encryption key.
+ * @return string The encrypted string in lowercase hexadecimal format.
+ */
+function encrypt(string $plainText, string $key) : string
+{
+    $output = "";
+    $keyPos = 0;
+    for ($p = 0; $p < strlen($plainText); $p++) {
+        if ($keyPos > strlen($key) - 1) {
+        $keyPos = 0;
+        }
+        $char = $plainText[$p] ^ $key[$keyPos];
+        $bin = str_pad(decbin(ord($char)), 8, "0", STR_PAD_LEFT);
+
+        $hex = dechex(bindec($bin));
+        $hex = str_pad($hex, 2, "0", STR_PAD_LEFT);
+        $output .= strtoupper($hex);
+        $keyPos++;
+    }
+    return strtolower($output);
+}
+  
+/**
+ * Decrypts an encrypted text string using the same key used for encryption.
+ *
+ * This function takes a hexadecimal encrypted string, converts each two-character hexadecimal
+ * value back to its ASCII representation, and then performs a bitwise XOR operation with the
+ * corresponding character in the key (repeating the key if necessary) to retrieve the original
+ * plain text character.
+ * 
+ * * REF https://www.codecauldron.dev/2021/02/12/simple-xor-encryption-in-php/
+ *
+ * @param string $encryptedText The hexadecimal encrypted string.
+ * @param string $key           The decryption key (must be the same as the encryption key).
+ * @return string The original decrypted plain text string.
+ */
+function decrypt(string $encryptedText, string $key) : string
+{
+    $hex_arr = explode(" ", trim(chunk_split($encryptedText, 2, " ")));
+    $output = "";
+    $keyPos = 0;
+    for ($p = 0; $p < sizeof($hex_arr); $p++) {
+        if ($keyPos > strlen($key) - 1) {
+        $keyPos = 0;
+        }
+        $char = chr(hexdec($hex_arr[$p])) ^ $key[$keyPos];
+
+        $output .= $char;
+        $keyPos++;
+    }
+    return $output;
+}
+  
+$text = "Salam World!!!";
+$key = strval(strlen($text));
+$encrypted = encrypt($text, $key);
+$decrypted = decrypt($encrypted, $key);
+
+assert( ! empty($encrypted));
+assert($text !== $encrypted);
+assert($text === $decrypted);
 
 /**
  * Class Key
@@ -63,14 +127,6 @@ class Key
         if( ! in_array($HASH_ALGO, hash_hmac_algos()))
             throw new Exception('Unsupported hash algorithm(' . $HASH_ALGO . ')');
 
-        $this->label = $label;
-        $this->ip = $ip;
-        $this->APP_KEY = $APP_KEY;
-        $this->KEY_LENGTH = $KEY_LENGTH;
-        $this->HASH_ALGO = $HASH_ALGO;
-        $this->hashed_public_key = $hashed_public_key;
-        $this->data = $data;
-
         if($hashed_public_key || $data) return;
 
         $this->public_key = $this->random_key();
@@ -80,12 +136,29 @@ class Key
             APP_KEY: $this->APP_KEY,
             HASH_ALGO: $this->HASH_ALGO,
         );
+        $key = strval(strlen($ip));
+        $encrypted_ip = encrypt($ip, $key);
+        $terminator = hash($HASH_ALGO, $private_key);
         $data = bin2hex(random_bytes(random_int(1, $this->KEY_LENGTH)))
             . $this->hashed_public_key
             . $private_key
+            . $key
+            . $terminator
+            . $encrypted_ip
             . bin2hex(random_bytes(random_int(1, $this->KEY_LENGTH)))
             ;
         $this->data = $data;
+        if(self::$debug){
+            echo '[KEY]' . PHP_EOL;
+            var_dump([
+                'hashed_public_key' => $this->hashed_public_key,
+                'private_key' => $private_key,
+                'key' => $key,
+                'terminator' => $terminator,
+                'encrypted_ip' => $encrypted_ip,
+                'data' => $data,
+            ]);
+        }
     }
 
     /**
@@ -106,7 +179,7 @@ class Key
      * random bytes (1 to KEY_LENGTH) + hashed public key + private key + random bytes (1 to KEY_LENGTH).
      * It extracts the private key based on the position of the `$hashed_public_key`.
      *
-     * @return string The extracted private key.
+     * @return array The extracted private key with IP.
      * @throws AssertionFailedError If the length of `$this->data` is less than four times `$this->KEY_LENGTH` in non-debug mode.
      */
     private function private_key()
@@ -122,19 +195,44 @@ class Key
             ]);
         }
         assert(strlen($this->data) >= $this->KEY_LENGTH * 4);
-        $x = explode($this->hashed_public_key, $this->data);
-        $y = substr($x[1], 0, $this->KEY_LENGTH * 2);
+        $data = explode($this->hashed_public_key, $this->data);
+        $private_key = substr($data[1], 0, $this->KEY_LENGTH * 4);
         if(static::$debug){
             var_dump([
                 'substr' => [
-                    $x[1],
+                    $data[1],
                     0,
                     $this->KEY_LENGTH * 2,
                 ],
-                'result' => $y,
+                'result' => $private_key,
             ]);
         }
-        return $y;
+        $terminator = hash($this->HASH_ALGO, $private_key);
+        $terminal = explode($terminator, $this->data);
+        if(static::$debug){
+            echo "terminator($terminator)" . PHP_EOL;
+            var_dump($terminal);
+        }
+        $y = explode($private_key, $terminal[0]);
+        $key_length = $y[1];
+        if(static::$debug){
+            var_dump([
+                'key_length' => $key_length,
+            ]);
+        }
+        $encrypted = substr($terminal[1], 0, intval($key_length) * 2);
+        if(static::$debug){
+            var_dump([
+                'encrypted' => $encrypted,
+            ]);
+        }
+        $ip = decrypt($encrypted, strval($key_length));
+        if(static::$debug){
+            var_dump([
+                'ip' => $ip,
+            ]);
+        }
+        return [$private_key, $ip];
     }
 
     /**
@@ -167,8 +265,9 @@ class Key
     public function token() : string
     {
         assert( ! empty($this->public_key));
+        list($private_key, $ip) = $this->private_key();
         return $this->public_key . self::hmac(
-            text: $this->private_key(),
+            text: $private_key,
             APP_KEY: $this->APP_KEY,
             HASH_ALGO: $this->HASH_ALGO,
         );
@@ -245,10 +344,11 @@ class Key
         if( ! $parsed) return false;
 
         list($public_key, $shared_key) = $parsed;
+        list($private_key, $ip) = $this->private_key();
 
         return hash_equals(
             self::hmac(
-                text: $this->private_key(),
+                text: $private_key,
                 APP_KEY: $this->APP_KEY,
                 HASH_ALGO: $this->HASH_ALGO,
             ),
