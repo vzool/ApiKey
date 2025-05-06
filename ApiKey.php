@@ -22,7 +22,7 @@ function encrypt(string $plainText, string $key) : string
     $keyPos = 0;
     for ($p = 0; $p < strlen($plainText); $p++) {
         if ($keyPos > strlen($key) - 1) {
-        $keyPos = 0;
+            $keyPos = 0;
         }
         $char = $plainText[$p] ^ $key[$keyPos];
         $bin = str_pad(decbin(ord($char)), 8, "0", STR_PAD_LEFT);
@@ -56,7 +56,7 @@ function decrypt(string $encryptedText, string $key) : string
     $keyPos = 0;
     for ($p = 0; $p < sizeof($hex_arr); $p++) {
         if ($keyPos > strlen($key) - 1) {
-        $keyPos = 0;
+            $keyPos = 0;
         }
         $char = chr(hexdec($hex_arr[$p])) ^ $key[$keyPos];
 
@@ -329,11 +329,13 @@ class Key
 
     /**
      * Validates a given token against the current Key object's private key and application key.
+     * 
+     * @param string $ip The IP address associated with this key. Defaults to an empty string.
      *
      * @param string $token The token to validate.
      * @return bool True if the token is valid, false otherwise.
      */
-    public function valid(string $token) : bool
+    public function valid(string $token, string $ip = '') : bool
     {
         $parsed = self::parse(
             token: $token,
@@ -344,9 +346,9 @@ class Key
         if( ! $parsed) return false;
 
         list($public_key, $shared_key) = $parsed;
-        list($private_key, $ip) = $this->private_key();
+        list($private_key, $stored_ip) = $this->private_key();
 
-        return hash_equals(
+        $valid = hash_equals(
             self::hmac(
                 text: $private_key,
                 APP_KEY: $this->APP_KEY,
@@ -354,6 +356,12 @@ class Key
             ),
             $shared_key,
         );
+
+        if( ! empty($ip) && ! empty($stored_ip)){
+            return $valid && $ip === $stored_ip;
+        }
+
+        return $valid;
     }
 
     /**
@@ -478,6 +486,8 @@ class Key
                 }catch(Exception $ex) { $failed = true; }
                 //assert($failed);
                 assert($key2->valid($token));
+                assert($key2->valid($token, '127.0.0.1'));
+                assert( ! $key2->valid($token, '127.0.0.2'));
                 assert( ! $key2->valid($token . 'y'));
                 assert( ! $key2->valid('y'));
                 assert( ! $key2->valid(''));
