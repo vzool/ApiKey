@@ -178,8 +178,6 @@ class XoRx
 }
 
 /**
- * Class Key
- * 
  * Represents a cryptographic key with associated metadata and functionality
  * for generating, validating, and parsing tokens.
  */
@@ -336,7 +334,10 @@ class Key
             ]);
         }
         $payload = json_decode($payload_json, associative: true);
-        return [$private_key, $payload];
+        return [
+            $private_key,
+            $payload,
+        ];
     }
 
     /**
@@ -603,8 +604,6 @@ class Key
 }
 
 /**
- * Class ApiKeyMemory
- *
  * Extends the Key class to provide an in-memory storage mechanism for API keys.
  * This class is primarily intended for development or testing environments
  * where persistent storage is not required.
@@ -776,8 +775,6 @@ class ApiKeyMemory extends Key
 }
 
 /**
- * class ApiKeyFS
- * 
  * Manages API keys, extending the in-memory storage with file system persistence.
  *
  * This class provides methods for saving, loading, and managing API keys,
@@ -868,8 +865,6 @@ class ApiKeyFS extends ApiKeyMemory
 }
 
 /**
- * Class CLI
- *
  * Provides a command-line interface for generating and checking API keys.
  *
  * This class offers static methods to handle command-line arguments,
