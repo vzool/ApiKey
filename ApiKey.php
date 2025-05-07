@@ -3,28 +3,74 @@
 
 define('API_KEY_VERSION', '0.0.1');
 
-// REF https://www.codecauldron.dev/2021/02/12/simple-xor-encryption-in-php/
+/**
+ * Provides simple XOR-based encryption and decryption functionalities.
+ *
+ * This class offers static methods for encrypting and decrypting strings using a provided key.
+ * It employs a bitwise XOR operation and extends the key if it's shorter than the plaintext
+ * by repeatedly hashing it.
+ * 
+ * REF https://www.codecauldron.dev/2021/02/12/simple-xor-encryption-in-php/
+ */
 class XoRx
 {
+    /**
+     * Enables or disables debugging output within the encryption and decryption processes.
+     *
+     * When set to `true`, detailed information about each step of the encryption and
+     * decryption will be echoed to the output. Defaults to `false`.
+     *
+     * @var bool
+     */
     public static bool $debug = false;
 
     /**
-     * Encrypts a plain text string using a provided key.
+     * Generates an encryption key that is at least as long as the plaintext.
      *
-     * This function iterates through each character of the plain text, performs a bitwise XOR operation
-     * with the corresponding character in the key (repeating the key if necessary), and then converts
-     * the result to its hexadecimal representation.
+     * If the provided key is shorter than the plaintext, this function repeatedly hashes
+     * the key using the specified algorithm until its length is sufficient.
+     *
+     * @param string $plainText The plaintext whose length determines the minimum key length.
+     * @param string $key       The initial encryption key.
+     * @param string $algo      The hashing algorithm to use for key extension (default: 'sha3-384').
+     * @return string The generated key, guaranteed to be at least as long as the plaintext.
+     */
+    public static function key(string $plainText, string $key, string $algo = 'sha3-384') : string
+    {
+        $data_length = strlen($plainText);
+        $key_length = strlen($key);
+        if($key_length < $data_length){
+            $count = 0;
+            do{
+                $key .= hash($algo, $key);
+                $data_length = strlen($plainText);
+                $key_length = strlen($key);
+                $count = ($data_length - $key_length) / $data_length;
+            }while($count > 0);
+        }
+        return $key;
+    }
+
+    /**
+     * Encrypts a given plaintext string using a provided key.
+     *
+     * This function iterates through each character of the plaintext. For each character,
+     * it performs a bitwise XOR operation with the corresponding character in the key.
+     * The key is repeated cyclically if it is shorter than the plaintext. The resulting
+     * character is then converted to its hexadecimal representation.
      *
      * @param string $plainText The string to be encrypted.
      * @param string $key       The encryption key.
+     * @param string $algo      The hashing algorithm used to extend the key (default: 'sha3-384').
      * @return string The encrypted string in lowercase hexadecimal format.
      */
-    public static function encrypt(string $plainText, string $key) : string
+    public static function encrypt(string $plainText, string $key, string $algo = 'sha3-384') : string
     {
         if(self::$debug) echo('[encrypt]' . PHP_EOL);
         $output = "";
         $keyPos = 0;
         $length = strlen($plainText);
+        $key = self::key($key, $algo);
         for ($p = 0; $p < $length; $p++) {
             if ($keyPos > strlen($key) - 1) {
                 $keyPos = 0;
@@ -45,24 +91,27 @@ class XoRx
     }
 
     /**
-     * Decrypts an encrypted text string using the same key used for encryption.
+     * Decrypts a hexadecimal encrypted string using the corresponding key.
      *
-     * This function takes a hexadecimal encrypted string, converts each two-character hexadecimal
-     * value back to its ASCII representation, and then performs a bitwise XOR operation with the
-     * corresponding character in the key (repeating the key if necessary) to retrieve the original
-     * plain text character.
+     * This function takes a hexadecimal encrypted string. It iterates through the string,
+     * taking two characters at a time to convert them back to their ASCII representation.
+     * It then performs a bitwise XOR operation with the corresponding character in the key
+     * (which must be the same key used for encryption). The key is repeated cyclically if
+     * it is shorter than the decrypted text.
      *
      * @param string $encryptedText The hexadecimal encrypted string.
-     * @param string $key           The decryption key (must be the same as the encryption key).
-     * @return string The original decrypted plain text string.
+     * @param string $key           The decryption key (must match the encryption key).
+     * @param string $algo      The hashing algorithm used to extend the key during encryption (default: 'sha3-384').
+     * @return string The original decrypted plaintext string.
      */
-    public static function decrypt(string $encryptedText, string $key) : string
+    public static function decrypt(string $encryptedText, string $key, string $algo = 'sha3-384') : string
     {
         if(self::$debug) echo('[decrypt]' . PHP_EOL);
         $hex_arr = explode(" ", trim(chunk_split($encryptedText, 2, " ")));
         $output = "";
         $keyPos = 0;
         $length = sizeof($hex_arr);
+        $key = self::key($key, $algo);
         for ($p = 0; $p < $length; $p++) {
             if ($keyPos > strlen($key) - 1) {
                 $keyPos = 0;
@@ -77,6 +126,17 @@ class XoRx
         return $output;
     }
 
+    /**
+     * Performs basic self-tests to verify the encryption and decryption functionality.
+     *
+     * This method encrypts and then decrypts sample text strings using simple keys.
+     * It uses assertions to check if the encryption produces a non-empty and different
+     * string from the original, and if the decryption successfully recovers the original text.
+     * Optionally, it can output debugging information during the tests.
+     *
+     * @param bool $debug Enables or disables debugging output for the tests (default: false).
+     * @return void
+     */
     public static function test(bool $debug = false)
     {
         self::$debug = $debug;
@@ -86,7 +146,8 @@ class XoRx
         $encrypted = self::encrypt($text, $key);
         $decrypted = self::decrypt($encrypted, $key);
         if($debug) var_dump([
-            'key' => $key,
+            'key1' => $key,
+            'key2' => self::key($text, $key),
             'encrypted' => $encrypted,
             'decrypted' => $decrypted,
             'assert1' => ! empty($encrypted),
@@ -102,7 +163,8 @@ class XoRx
         $encrypted = self::encrypt($text, $key);
         $decrypted = self::decrypt($encrypted, $key);
         if($debug) var_dump([
-            'key' => $key,
+            'key1' => $key,
+            'key2' => self::key($text, $key),
             'encrypted' => $encrypted,
             'decrypted' => $decrypted,
             'assert1' => ! empty($encrypted),
