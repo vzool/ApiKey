@@ -6,6 +6,8 @@ define('API_KEY_VERSION', '0.0.1');
 // REF https://www.codecauldron.dev/2021/02/12/simple-xor-encryption-in-php/
 class XoRx
 {
+    public static bool $debug = false;
+
     /**
      * Encrypts a plain text string using a provided key.
      *
@@ -19,21 +21,27 @@ class XoRx
      */
     public static function encrypt(string $plainText, string $key) : string
     {
+        if(self::$debug) echo('[encrypt]' . PHP_EOL);
         $output = "";
         $keyPos = 0;
-        for ($p = 0; $p < strlen($plainText); $p++) {
+        $length = strlen($plainText);
+        for ($p = 0; $p < $length; $p++) {
             if ($keyPos > strlen($key) - 1) {
                 $keyPos = 0;
             }
+            if(self::$debug)
+                echo(json_encode([$p => $plainText[$p], $keyPos => $key[$keyPos]]));
             $char = $plainText[$p] ^ $key[$keyPos];
             $bin = str_pad(decbin(ord($char)), 8, "0", STR_PAD_LEFT);
 
-            $hex = dechex(bindec($bin));
-            $hex = str_pad($hex, 2, "0", STR_PAD_LEFT);
-            $output .= strtoupper($hex);
+            $hex1 = dechex(bindec($bin));
+            $hex2 = str_pad($hex1, 2, "0", STR_PAD_LEFT);
+            if(self::$debug)
+                echo(json_encode([$bin, $hex1, $hex2]) . PHP_EOL);
+            $output .= $hex2;
             $keyPos++;
         }
-        return strtolower($output);
+        return $output;
     }
 
     /**
@@ -50,13 +58,17 @@ class XoRx
      */
     public static function decrypt(string $encryptedText, string $key) : string
     {
+        if(self::$debug) echo('[decrypt]' . PHP_EOL);
         $hex_arr = explode(" ", trim(chunk_split($encryptedText, 2, " ")));
         $output = "";
         $keyPos = 0;
-        for ($p = 0; $p < sizeof($hex_arr); $p++) {
+        $length = sizeof($hex_arr);
+        for ($p = 0; $p < $length; $p++) {
             if ($keyPos > strlen($key) - 1) {
                 $keyPos = 0;
             }
+            if(self::$debug)
+                echo(json_encode([$p => $hex_arr[$p], $keyPos => $key[$keyPos]]) . PHP_EOL);
             $char = chr(hexdec($hex_arr[$p])) ^ $key[$keyPos];
 
             $output .= $char;
@@ -67,6 +79,8 @@ class XoRx
 
     public static function test(bool $debug = false)
     {
+        self::$debug = $debug;
+
         $text = "Salam World!!!";
         $key = strval(strlen($text));
         $encrypted = self::encrypt($text, $key);
