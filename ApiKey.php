@@ -71,7 +71,30 @@ class XoRx
         $key = strval(strlen($text));
         $encrypted = self::encrypt($text, $key);
         $decrypted = self::decrypt($encrypted, $key);
+        if($debug) var_dump([
+            'key' => $key,
+            'encrypted' => $encrypted,
+            'decrypted' => $decrypted,
+            'assert1' => ! empty($encrypted),
+            'assert2' => $text !== $encrypted,
+            'assert3' => $text === $decrypted,
+        ]);
+        assert( ! empty($encrypted));
+        assert($text !== $encrypted);
+        assert($text === $decrypted);
 
+        $text = str_repeat('x', 100);
+        $key = strval(strlen($text));
+        $encrypted = self::encrypt($text, $key);
+        $decrypted = self::decrypt($encrypted, $key);
+        if($debug) var_dump([
+            'key' => $key,
+            'encrypted' => $encrypted,
+            'decrypted' => $decrypted,
+            'assert1' => ! empty($encrypted),
+            'assert2' => $text !== $encrypted,
+            'assert3' => $text === $decrypted,
+        ]);
         assert( ! empty($encrypted));
         assert($text !== $encrypted);
         assert($text === $decrypted);
