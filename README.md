@@ -1,3 +1,5 @@
+<img alt="logo" width="256px" src="images/logo.svg"/>
+
 ## API Key Management Library (ApiKey)
 
 <a href="https://github.com/vzool/ApiKey/actions/workflows/php.yml">
