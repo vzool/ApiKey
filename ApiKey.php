@@ -176,15 +176,16 @@ class Key
             APP_KEY: $this->APP_KEY,
             HASH_ALGO: $this->HASH_ALGO,
         );
-        $key = strval(strlen($ip));
-        $encrypted_ip = XoRx::encrypt($ip, $key);
+        $payload = json_encode([$label, $ip, date('Y-m-d H:i:s')]);
+        $length = strlen($payload);
+        $encrypted_payload = XoRx::encrypt($payload, $private_key);
         $terminator = hash($HASH_ALGO, $private_key);
         $data = bin2hex(random_bytes(random_int(1, $this->KEY_LENGTH)))
             . $this->hashed_public_key
             . $private_key
-            . $key
+            . $length
             . $terminator
-            . $encrypted_ip
+            . $encrypted_payload
             . bin2hex(random_bytes(random_int(1, $this->KEY_LENGTH)))
             ;
         $this->data = $data;
@@ -193,9 +194,9 @@ class Key
             var_dump([
                 'hashed_public_key' => $this->hashed_public_key,
                 'private_key' => $private_key,
-                'key' => $key,
+                'length' => $length,
                 'terminator' => $terminator,
-                'encrypted_ip' => $encrypted_ip,
+                'encrypted_payload' => $encrypted_payload,
                 'data' => $data,
             ]);
         }
@@ -254,25 +255,26 @@ class Key
             var_dump($terminal);
         }
         $y = explode($private_key, $terminal[0]);
-        $key_length = $y[1];
+        $length = $y[1];
         if(static::$debug){
             var_dump([
-                'key_length' => $key_length,
+                'length' => $length,
             ]);
         }
-        $encrypted = substr($terminal[1], 0, intval($key_length) * 2);
+        $encrypted_payload = substr($terminal[1], 0, intval($length) * 2);
         if(static::$debug){
             var_dump([
-                'encrypted' => $encrypted,
+                'encrypted_payload' => $encrypted_payload,
             ]);
         }
-        $ip = XoRx::decrypt($encrypted, strval($key_length));
+        $payload_json = XoRx::decrypt($encrypted_payload, $private_key);
         if(static::$debug){
             var_dump([
-                'ip' => $ip,
+                'payload_json' => $payload_json,
             ]);
         }
-        return [$private_key, $ip];
+        $payload = json_decode($payload_json, associative: true);
+        return [$private_key, $payload];
     }
 
     /**
@@ -305,7 +307,7 @@ class Key
     public function token() : string
     {
         assert( ! empty($this->public_key));
-        list($private_key, $ip) = $this->private_key();
+        list($private_key, $payload) = $this->private_key();
         return $this->public_key . self::hmac(
             text: $private_key,
             APP_KEY: $this->APP_KEY,
@@ -386,7 +388,8 @@ class Key
         if( ! $parsed) return false;
 
         list($public_key, $shared_key) = $parsed;
-        list($private_key, $stored_ip) = $this->private_key();
+        list($private_key, $payload) = $this->private_key();
+        list($label, $stored_ip, $created) = $payload;
 
         $valid = hash_equals(
             self::hmac(
