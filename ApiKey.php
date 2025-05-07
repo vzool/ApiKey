@@ -190,7 +190,7 @@ class Key
             ;
         $this->data = $data;
         if(self::$debug){
-            echo '[KEY]' . PHP_EOL;
+            echo('[KEY]' . PHP_EOL);
             var_dump([
                 'hashed_public_key' => $this->hashed_public_key,
                 'private_key' => $private_key,
@@ -226,7 +226,7 @@ class Key
     private function private_key()
     {
         if(static::$debug){
-            echo 'private_key' . PHP_EOL;
+            echo('private_key' . PHP_EOL);
             var_dump([
                 'assert' => [
                     'strlen' => strlen($this->data),
@@ -251,7 +251,7 @@ class Key
         $terminator = hash($this->HASH_ALGO, $private_key);
         $terminal = explode($terminator, $this->data);
         if(static::$debug){
-            echo "terminator($terminator)" . PHP_EOL;
+            echo("terminator($terminator)" . PHP_EOL);
             var_dump($terminal);
         }
         $y = explode($private_key, $terminal[0]);
@@ -342,8 +342,8 @@ class Key
         $shared_key = substr($token, $public_key_length, $HASH_LENGTH); // !!!
 
         if(static::$debug){
-            echo 'parse' . PHP_EOL;
-            echo 'public_key' . PHP_EOL;
+            echo('parse' . PHP_EOL);
+            echo('public_key' . PHP_EOL);
             var_dump([
                 'substr' => [
                     $token,
@@ -352,7 +352,7 @@ class Key
                 ],
                 'result' => $public_key,
             ]);
-            echo 'shared_key' . PHP_EOL;
+            echo('shared_key' . PHP_EOL);
             var_dump([
                 'substr' => [
                     $token,
@@ -628,6 +628,7 @@ class ApiKeyMemory extends Key
      * Checks if a given API token is valid by retrieving the corresponding key from memory.
      *
      * @param string $token The API token to check.
+     * @param string $ip The IP address associated with this key (optional, defaults to '').
      * @param string $APP_KEY The application-specific secret key used for signing (defaults to the global APP_KEY constant).
      * @param int $KEY_LENGTH The expected length of the public and private keys (defaults to 33).
      * @param string $HASH_ALGO The hashing algorithm used (defaults to 'sha3-384').
@@ -635,6 +636,7 @@ class ApiKeyMemory extends Key
      */
     public static function check(
         string $token,
+        string $ip = '',
         string $APP_KEY = APP_KEY,
         int $KEY_LENGTH = 33,
         string $HASH_ALGO = 'sha3-384',
@@ -684,7 +686,7 @@ class ApiKeyMemory extends Key
         );
 
         if( ! $key) return false;
-        return $key->valid($token);
+        return $key->valid($token, $ip);
     }
 
     /**
@@ -704,6 +706,8 @@ class ApiKeyMemory extends Key
         );
         assert( ! empty($token));
         assert(self::check($token, APP_KEY: $APP_KEY));
+        assert(self::check($token, APP_KEY: $APP_KEY, ip: '127.0.0.1'));
+        assert( ! self::check($token, APP_KEY: $APP_KEY, ip: '127.0.0.2'));
         assert( ! self::check('', APP_KEY: $APP_KEY));
         assert( ! self::check('123', APP_KEY: $APP_KEY));
     }
@@ -794,6 +798,8 @@ class ApiKeyFS extends ApiKeyMemory
         );
         assert( ! empty($token));
         assert(self::check($token));
+        assert(self::check($token, ip: '127.0.0.1'));
+        assert( ! self::check($token, ip: '127.0.0.2'));
         assert( ! self::check(''));
         assert( ! self::check('123'));
     }
@@ -834,29 +840,39 @@ class CLI
     public static function display_help()
     {
         global $argv;
-        echo "Usage: {$argv[0]} <command> [options]\n";
-        echo "Version: " . API_KEY_VERSION . "\n";
-        echo "\n";
-        echo "Commands:\n";
-        echo "  generate  Generate a new API key and store it.\n";
-        echo "  check     Check the validity of an API key.\n";
-        echo "  test      Run the tests.\n";
-        echo "  help      Display this help message.\n";
-        echo "\n";
-        echo "Options:\n";
-        echo "  --app-key=<app-key>         Application key (always required).\n";
-        echo "  --path=<api-keys-path>      API Keys storage path (always required).\n";
-        echo "  --label=<label>             Label for the API key (required for generate).\n";
-        echo "  --ip=<ip>                   IP address of the client (optional for generate).\n";
-        echo "  --token=<token>             The API key token to check (required for check).\n";
-        echo "  --key-length=<key-length>   The size of key building block (optional: default 33).\n";
-        echo "  --algo=<algo>               The algorithm used for hmac hashing (optional: default sha3-384). See `hash_hmac_algos()` for supported algorithms.\n";
-        echo "  --verbose                   Print verbose messages (optional: false).\n";
-        echo "\n";
-        echo "Example:\n";
-        echo "  php {$argv[0]} generate --app-key=abc-def-ghi --path=tmp --label=my-app --ip=192.168.1.100\n";
-        echo "  php {$argv[0]} check --app-key=abc-def-ghi --path=tmp --token=the-api-key-token-here\n";
-        echo "  php {$argv[0]} help\n";
+        echo("
+                 _ _  __          
+     /\         (_) |/ /          
+    /  \   _ __  _| ' / ___ _   _ 
+   / /\ \ | '_ \| |  < / _ \ | | |
+  / ____ \| |_) | | . \  __/ |_| |
+ /_/    \_\ .__/|_|_|\_\___|\__, |
+          | |                __/ |
+          |_|               |___/ v" . API_KEY_VERSION . PHP_EOL);
+        echo("Usage:\n{$argv[0]} <command> [options]\n");
+        echo("\n");
+        echo("Commands:\n");
+        echo("  generate  Generate a new API key and store it.\n");
+        echo("  check     Check the validity of an API key.\n");
+        echo("  test      Run the tests.\n");
+        echo("  version   Show library version.\n");
+        echo("  help      Display this help message.\n");
+        echo("\n");
+        echo("Options:\n");
+        echo("  --app-key=<app-key>         Application key (always required).\n");
+        echo("  --path=<api-keys-path>      API Keys storage path (always required).\n");
+        echo("  --label=<label>             Label for the API key (required for generate).\n");
+        echo("  --ip=<ip>                   IP address of the client (optional for generate).\n");
+        echo("  --token=<token>             The API key token to check (required for check).\n");
+        echo("  --key-length=<key-length>   The size of key building block (optional: default 33).\n");
+        echo("  --algo=<algo>               The algorithm used for hmac hashing (optional: default sha3-384). See `hash_hmac_algos()` for supported algorithms.\n");
+        echo("  --verbose                   Print verbose messages (optional: false).\n");
+        echo("\n");
+        echo("Example:\n");
+        echo("  php {$argv[0]} generate --app-key=abc-def-ghi --path=tmp --label=my-app --ip=192.168.1.100\n");
+        echo("  php {$argv[0]} check --app-key=abc-def-ghi --path=tmp --ip=192.168.1.100 --token=the-api-key-token-here\n");
+        echo("  php {$argv[0]} check --app-key=abc-def-ghi --path=tmp --token=the-api-key-token-here\n");
+        echo("  php {$argv[0]} help\n");
     }
 
     /**
@@ -916,12 +932,12 @@ class CLI
             'label' => "Error: The --label option is required for the generate command.",
         ] as $option => $message){
             if ( ! isset(self::$options[$option])) {
-                echo $message . PHP_EOL;
+                echo($message . PHP_EOL);
                 self::display_help();
                 exit(1);
             }
             if (is_bool(self::$options[$option])) {
-                echo $message . PHP_EOL;
+                echo($message . PHP_EOL);
                 self::display_help();
                 exit(1);
             }
@@ -946,12 +962,12 @@ class CLI
                 KEY_LENGTH: $key_length,
                 HASH_ALGO: $algo,
             );
-            if($verbose) echo "Generated API Key Token:\n";
-            echo $token;
-            if($verbose) echo "\n";
-            if($verbose) echo "Key stored in: " . API_KEY_PATH . "\n";
+            if($verbose) echo("Generated API Key Token:\n");
+            echo($token);
+            if($verbose) echo("\n");
+            if($verbose) echo("Key stored in: " . API_KEY_PATH . "\n");
         } catch (Exception $e) {
-            echo "Error: " . $e->getMessage() . "\n";
+            echo("Error: " . $e->getMessage() . "\n");
             exit(1);
         }
     }
@@ -977,12 +993,12 @@ class CLI
             'token' => "Error: The --token option is required for the check command.",
         ] as $option => $message){
             if ( ! isset(self::$options[$option])) {
-                echo $message . PHP_EOL;
+                echo($message . PHP_EOL);
                 self::display_help();
                 exit(1);
             }
             if (is_bool(self::$options[$option])) {
-                echo $message . PHP_EOL;
+                echo($message . PHP_EOL);
                 self::display_help();
                 exit(1);
             }
@@ -991,6 +1007,7 @@ class CLI
         $app_key = self::$options['app-key'];
         $path = self::$options['path'];
         $token = self::$options['token'];
+        $ip = isset(self::$options['ip']) ? self::$options['ip'] : '';
         $key_length = isset(self::$options['key-length']) ? self::$options['key-length'] : 33;
         $algo = isset(self::$options['algo']) ? self::$options['algo'] : 'sha3-384';
 
@@ -1001,12 +1018,13 @@ class CLI
             define('APP_KEY', $app_key);
             $isValid = ApiKeyFS::check(
                 token: $token,
+                ip: $ip,
                 KEY_LENGTH: $key_length,
                 HASH_ALGO: $algo,
             );
-            echo "API Key Token is " . ($isValid ? "valid" : "invalid") . ".\n";
+            echo("API Key Token is " . ($isValid ? "valid" : "invalid") . ".\n");
         } catch (Exception $e) {
-            echo "Error: " . $e->getMessage() . "\n";
+            echo("Error: " . $e->getMessage() . "\n");
             exit(1);
         }
     }
@@ -1060,6 +1078,9 @@ class CLI
             case 'test':
                 self::handle_test();
                 break;
+            case 'version':
+                echo(API_KEY_VERSION);
+                break;
             case 'help':
             default:
                 self::display_help();
@@ -1095,7 +1116,7 @@ class CLI
         ] as $command => $message){
             $output = [];
             $return_var = 0;
-            if($debug) echo "Command: $command\n";
+            if($debug) echo("Command: $command\n");
             exec($command, $output, $return_var);
             if($debug) var_dump(['return_var' => $return_var, 'output' => $output]);
             assert($return_var === 1);
@@ -1108,7 +1129,7 @@ class CLI
         $output = [];
         $return_var = 0;
         $command = 'php ApiKey.php generate --app-key=abc-def-ghi --path=tmp --label=my-app --ip=192.168.1.100';
-        if($debug) echo "Command: $command\n";
+        if($debug) echo("Command: $command\n");
         exec($command, $output, $return_var);
         if($debug) var_dump(['return_var' => $return_var, 'output' => $output]);
         assert($return_var === 0);
@@ -1126,7 +1147,7 @@ class CLI
         ] as $command => $message){
             $output = [];
             $return_var = 0;
-            if($debug) echo "Command: $command\n";
+            if($debug) echo("Command: $command\n");
             exec($command, $output, $return_var);
             if($debug) var_dump(['return_var' => $return_var, 'output' => $output]);
             assert($return_var === 1);
@@ -1137,28 +1158,37 @@ class CLI
         }
 
         // good check vaild
-        $output = [];
-        $command = 'php ApiKey.php check --app-key=abc-def-ghi --path=tmp --token=' . $token;
-        $return_var = 0;
-        if($debug) echo "Command: $command\n";
-        exec($command, $output, $return_var);
-        if($debug) var_dump(['return_var' => $return_var, 'output' => $output]);
-        assert($return_var === 0);
-        if($debug) var_dump($output);
-        assert(count($output) === 1);
-        assert(in_array('API Key Token is valid.', $output));
+        foreach([
+            '',
+            '--ip=192.168.1.100',
+        ] as $ip){
+            $output = [];
+            $command = "php ApiKey.php check --app-key=abc-def-ghi --path=tmp $ip --token=" . $token;
+            $return_var = 0;
+            if($debug) echo("Command: $command\n");
+            exec($command, $output, $return_var);
+            if($debug) var_dump(['return_var' => $return_var, 'output' => $output]);
+            assert($return_var === 0);
+            if($debug) var_dump($output);
+            assert(count($output) === 1);
+            assert(in_array('API Key Token is valid.', $output));
+        }
 
         // check invalid
-        $output = [];
-        $return_var = 0;
-        $command = 'php ApiKey.php check --app-key=abc-def-ghi --path=tmp --token=xyz';
-        if($debug) echo "Command: $command\n";
-        exec($command, $output, $return_var);
-        if($debug) var_dump(['return_var' => $return_var, 'output' => $output]);
-        assert($return_var === 0);
-        if($debug) var_dump($output);
-        assert(count($output) === 1);
-        assert(in_array('API Key Token is invalid.', $output));
+        foreach([
+            'php ApiKey.php check --app-key=abc-def-ghi --path=tmp --ip=192.168.1.101 --token=' . $token,
+            'php ApiKey.php check --app-key=abc-def-ghi --path=tmp --token=xyz',
+        ] as $command){
+            $output = [];
+            $return_var = 0;
+            if($debug) echo("Command: $command\n");
+            exec($command, $output, $return_var);
+            if($debug) var_dump(['return_var' => $return_var, 'output' => $output]);
+            assert($return_var === 0);
+            if($debug) var_dump($output);
+            assert(count($output) === 1);
+            assert(in_array('API Key Token is invalid.', $output));
+        }
     }
 }
 

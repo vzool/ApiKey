@@ -1,3 +1,5 @@
 tmp
 .phpdoc
 /docs
+*.phar
+app
