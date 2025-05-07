@@ -1,4 +1,4 @@
-<img alt="logo" width="256px" src="images/logo.svg"/>
+<img alt="logo" width="256px" src="images/logo.svg" style="background: #fff" />
 
 ## API Key Management Library (ApiKey)
 
