@@ -1,6 +1,14 @@
 #!/usr/bin/env php
 <?php declare(strict_types=1);
 
+/**
+ * @license MIT
+ * @author Abdelaziz Elarashed Elshaikh Mohamed
+ * @copyright 2025
+ * @package ApiKey
+ * @link https://github.com/vzool/ApiKey
+ */
+
 define('API_KEY_VERSION', '0.0.1');
 
 /**
@@ -848,7 +856,13 @@ class ApiKeyFS extends ApiKeyMemory
      */
     public static function test(bool $debug = false)
     {
+        /**
+         * @ignore
+         */
         define('API_KEY_PATH', 'tmp');
+        /**
+         * @ignore
+         */
         define('APP_KEY', '94473B99-23CB-4A4D-A315-C0F9B8C9B39A');
         self::$debug = $debug;
         $token = self::make(
@@ -1011,7 +1025,13 @@ class CLI
         $key_length = is_int($key_length) && $key_length >= 1 ? $key_length : 33;
 
         try {
+            /**
+             * @ignore
+             */
             define('API_KEY_PATH', $path);
+            /**
+             * @ignore
+             */
             define('APP_KEY', $app_key);
             $token = ApiKeyFS::make(
                 label: $label,
@@ -1071,7 +1091,13 @@ class CLI
         $key_length = is_int($key_length) && $key_length >= 1 ? $key_length : 33;
 
         try {
+            /**
+             * @ignore
+             */
             define('API_KEY_PATH', $path);
+            /**
+             * @ignore
+             */
             define('APP_KEY', $app_key);
             $isValid = ApiKeyFS::check(
                 token: $token,
