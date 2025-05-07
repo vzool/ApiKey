@@ -3,77 +3,80 @@
 
 define('API_KEY_VERSION', '0.0.1');
 
-/**
- * Encrypts a plain text string using a provided key.
- *
- * This function iterates through each character of the plain text, performs a bitwise XOR operation
- * with the corresponding character in the key (repeating the key if necessary), and then converts
- * the result to its hexadecimal representation.
- * 
- * * REF https://www.codecauldron.dev/2021/02/12/simple-xor-encryption-in-php/
- *
- * @param string $plainText The string to be encrypted.
- * @param string $key       The encryption key.
- * @return string The encrypted string in lowercase hexadecimal format.
- */
-function encrypt(string $plainText, string $key) : string
+// REF https://www.codecauldron.dev/2021/02/12/simple-xor-encryption-in-php/
+class XoRx
 {
-    $output = "";
-    $keyPos = 0;
-    for ($p = 0; $p < strlen($plainText); $p++) {
-        if ($keyPos > strlen($key) - 1) {
-            $keyPos = 0;
+    /**
+     * Encrypts a plain text string using a provided key.
+     *
+     * This function iterates through each character of the plain text, performs a bitwise XOR operation
+     * with the corresponding character in the key (repeating the key if necessary), and then converts
+     * the result to its hexadecimal representation.
+     *
+     * @param string $plainText The string to be encrypted.
+     * @param string $key       The encryption key.
+     * @return string The encrypted string in lowercase hexadecimal format.
+     */
+    public static function encrypt(string $plainText, string $key) : string
+    {
+        $output = "";
+        $keyPos = 0;
+        for ($p = 0; $p < strlen($plainText); $p++) {
+            if ($keyPos > strlen($key) - 1) {
+                $keyPos = 0;
+            }
+            $char = $plainText[$p] ^ $key[$keyPos];
+            $bin = str_pad(decbin(ord($char)), 8, "0", STR_PAD_LEFT);
+
+            $hex = dechex(bindec($bin));
+            $hex = str_pad($hex, 2, "0", STR_PAD_LEFT);
+            $output .= strtoupper($hex);
+            $keyPos++;
         }
-        $char = $plainText[$p] ^ $key[$keyPos];
-        $bin = str_pad(decbin(ord($char)), 8, "0", STR_PAD_LEFT);
-
-        $hex = dechex(bindec($bin));
-        $hex = str_pad($hex, 2, "0", STR_PAD_LEFT);
-        $output .= strtoupper($hex);
-        $keyPos++;
+        return strtolower($output);
     }
-    return strtolower($output);
-}
-  
-/**
- * Decrypts an encrypted text string using the same key used for encryption.
- *
- * This function takes a hexadecimal encrypted string, converts each two-character hexadecimal
- * value back to its ASCII representation, and then performs a bitwise XOR operation with the
- * corresponding character in the key (repeating the key if necessary) to retrieve the original
- * plain text character.
- * 
- * * REF https://www.codecauldron.dev/2021/02/12/simple-xor-encryption-in-php/
- *
- * @param string $encryptedText The hexadecimal encrypted string.
- * @param string $key           The decryption key (must be the same as the encryption key).
- * @return string The original decrypted plain text string.
- */
-function decrypt(string $encryptedText, string $key) : string
-{
-    $hex_arr = explode(" ", trim(chunk_split($encryptedText, 2, " ")));
-    $output = "";
-    $keyPos = 0;
-    for ($p = 0; $p < sizeof($hex_arr); $p++) {
-        if ($keyPos > strlen($key) - 1) {
-            $keyPos = 0;
+
+    /**
+     * Decrypts an encrypted text string using the same key used for encryption.
+     *
+     * This function takes a hexadecimal encrypted string, converts each two-character hexadecimal
+     * value back to its ASCII representation, and then performs a bitwise XOR operation with the
+     * corresponding character in the key (repeating the key if necessary) to retrieve the original
+     * plain text character.
+     *
+     * @param string $encryptedText The hexadecimal encrypted string.
+     * @param string $key           The decryption key (must be the same as the encryption key).
+     * @return string The original decrypted plain text string.
+     */
+    public static function decrypt(string $encryptedText, string $key) : string
+    {
+        $hex_arr = explode(" ", trim(chunk_split($encryptedText, 2, " ")));
+        $output = "";
+        $keyPos = 0;
+        for ($p = 0; $p < sizeof($hex_arr); $p++) {
+            if ($keyPos > strlen($key) - 1) {
+                $keyPos = 0;
+            }
+            $char = chr(hexdec($hex_arr[$p])) ^ $key[$keyPos];
+
+            $output .= $char;
+            $keyPos++;
         }
-        $char = chr(hexdec($hex_arr[$p])) ^ $key[$keyPos];
-
-        $output .= $char;
-        $keyPos++;
+        return $output;
     }
-    return $output;
-}
-  
-$text = "Salam World!!!";
-$key = strval(strlen($text));
-$encrypted = encrypt($text, $key);
-$decrypted = decrypt($encrypted, $key);
 
-assert( ! empty($encrypted));
-assert($text !== $encrypted);
-assert($text === $decrypted);
+    public static function test(bool $debug = false)
+    {
+        $text = "Salam World!!!";
+        $key = strval(strlen($text));
+        $encrypted = self::encrypt($text, $key);
+        $decrypted = self::decrypt($encrypted, $key);
+
+        assert( ! empty($encrypted));
+        assert($text !== $encrypted);
+        assert($text === $decrypted);
+    }
+}
 
 /**
  * Class Key
@@ -137,7 +140,7 @@ class Key
             HASH_ALGO: $this->HASH_ALGO,
         );
         $key = strval(strlen($ip));
-        $encrypted_ip = encrypt($ip, $key);
+        $encrypted_ip = XoRx::encrypt($ip, $key);
         $terminator = hash($HASH_ALGO, $private_key);
         $data = bin2hex(random_bytes(random_int(1, $this->KEY_LENGTH)))
             . $this->hashed_public_key
@@ -226,7 +229,7 @@ class Key
                 'encrypted' => $encrypted,
             ]);
         }
-        $ip = decrypt($encrypted, strval($key_length));
+        $ip = XoRx::decrypt($encrypted, strval($key_length));
         if(static::$debug){
             var_dump([
                 'ip' => $ip,
@@ -981,6 +984,7 @@ class CLI
     public static function handle_test()
     {
         $verbose = self::$options['verbose'];
+        XoRx::test(debug: $verbose);
         Key::test(debug: $verbose);
         ApiKeyMemory::test(debug: $verbose);
         ApiKeyFS::test(debug: $verbose);
