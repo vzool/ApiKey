@@ -9,7 +9,29 @@
  * @link https://github.com/vzool/ApiKey
  */
 
+/**
+ * API Key Version: This constant defines the current version of the API key structure and format.
+ * It can be used for version control and to handle potential changes in future updates.
+ *
+ * @since 0.0.1
+ */
 define('API_KEY_VERSION', '0.0.1');
+
+/**
+ * Default API Key Length: This constant specifies the default length (in characters) of newly generated API keys.
+ * It provides a standard length for security and consistency.
+ *
+ * @since 0.0.1
+ */
+define('API_KEY_DEFAULT_LENGTH', 33);
+
+/**
+ * Default API Key Hashing Algorithm: This constant defines the default hashing algorithm used when generating API keys.
+ * It specifies the cryptographic hash function employed for security purposes.
+ *
+ * @since 0.0.1
+ */
+define('API_KEY_DEFAULT_ALGO', 'sha3-384');
 
 /**
  * Provides static methods for encoding and decoding strings using a URL-safe
@@ -157,10 +179,10 @@ class XoRx
      *
      * @param string $plainText The plaintext whose length determines the minimum key length.
      * @param string $key       The initial encryption key.
-     * @param string $algo      The hashing algorithm to use for key extension (default: 'sha3-384').
+     * @param string $algo      The hashing algorithm to use for key extension (default: API_KEY_DEFAULT_ALGO).
      * @return string The generated key, guaranteed to be at least as long as the plaintext.
      */
-    public static function key(string $plainText, string $key, string $algo = 'sha3-384') : string
+    public static function key(string $plainText, string $key, string $algo = API_KEY_DEFAULT_ALGO) : string
     {
         $data_length = strlen($plainText);
         $key_length = strlen($key);
@@ -186,10 +208,10 @@ class XoRx
      *
      * @param string $plainText The string to be encrypted.
      * @param string $key       The encryption key.
-     * @param string $algo      The hashing algorithm used to extend the key (default: 'sha3-384').
+     * @param string $algo      The hashing algorithm used to extend the key (default: API_KEY_DEFAULT_ALGO).
      * @return string The encrypted string in lowercase hexadecimal format.
      */
-    public static function encrypt(string $plainText, string $key, string $algo = 'sha3-384') : string
+    public static function encrypt(string $plainText, string $key, string $algo = API_KEY_DEFAULT_ALGO) : string
     {
         if(self::$debug) echo('[encrypt]' . PHP_EOL);
         $output = "";
@@ -226,10 +248,10 @@ class XoRx
      *
      * @param string $encryptedText The hexadecimal encrypted string.
      * @param string $key           The decryption key (must match the encryption key).
-     * @param string $algo      The hashing algorithm used to extend the key during encryption (default: 'sha3-384').
+     * @param string $algo      The hashing algorithm used to extend the key during encryption (default: API_KEY_DEFAULT_ALGO).
      * @return string The original decrypted plaintext string.
      */
-    public static function decrypt(string $encryptedText, string $key, string $algo = 'sha3-384') : string
+    public static function decrypt(string $encryptedText, string $key, string $algo = API_KEY_DEFAULT_ALGO) : string
     {
         if(self::$debug) echo('[decrypt]' . PHP_EOL);
         $hex_arr = explode(" ", trim(chunk_split($encryptedText, 2, " ")));
@@ -320,8 +342,8 @@ class Key
      * @param string $label A label for this key.
      * @param string $ip The IP address associated with this key.
      * @param string $APP_KEY The application-specific secret key used for hashing. This is required.
-     * @param int $KEY_LENGTH The length of the generated random keys in bytes. Defaults to 33.
-     * @param string $HASH_ALGO The hashing algorithm to use for HMAC. Defaults to 'sha3-384'.
+     * @param int $KEY_LENGTH The length of the generated random keys in bytes. Defaults to API_KEY_DEFAULT_LENGTH.
+     * @param string $HASH_ALGO The hashing algorithm to use for HMAC. Defaults to API_KEY_DEFAULT_ALGO.
      * Must be a supported algorithm by `hash_hmac_algos()`.
      * @param string $hashed_public_key An optional pre-computed hashed public key.
      * @param string $data Optional pre-existing data associated with the key.
@@ -332,8 +354,8 @@ class Key
         public string $label,
         public string $ip,
         private string $APP_KEY,
-        private int $KEY_LENGTH = 33,
-        private string $HASH_ALGO = 'sha3-384',
+        private int $KEY_LENGTH = API_KEY_DEFAULT_LENGTH,
+        private string $HASH_ALGO = API_KEY_DEFAULT_ALGO,
         public string $hashed_public_key = '',
         public string $data = '',
         public int $created = 0,
@@ -472,13 +494,13 @@ class Key
      *
      * @param string $text The input string to hash.
      * @param string $APP_KEY The secret key to use for the HMAC.
-     * @param string $HASH_ALGO The hashing algorithm to use. Defaults to 'sha3-384'.
+     * @param string $HASH_ALGO The hashing algorithm to use. Defaults to API_KEY_DEFAULT_ALGO.
      * @return string The hexadecimal representation of the HMAC.
      */
     public static function hmac(
         string $text,
         string $APP_KEY,
-        string $HASH_ALGO = 'sha3-384',
+        string $HASH_ALGO = API_KEY_DEFAULT_ALGO,
     ) : string
     {
         if(self::$debug){
@@ -527,16 +549,16 @@ class Key
      * Parses a token to extract the public key and the shared key (HMAC of the private key).
      *
      * @param string $token The token to parse.
-     * @param int $KEY_LENGTH The expected length of the public key in bytes. Defaults to 33.
-     * @param string $HASH_ALGO The hashing algorithm that was used to generate the HMAC. Defaults to 'sha3-384'.
+     * @param int $KEY_LENGTH The expected length of the public key in bytes. Defaults to API_KEY_DEFAULT_LENGTH.
+     * @param string $HASH_ALGO The hashing algorithm that was used to generate the HMAC. Defaults to API_KEY_DEFAULT_ALGO.
      * @return array An array containing the public key (at index 0) and the shared key (at index 1),
      * or an empty array if the token format is invalid or the hash algorithm is unsupported.
      * @throws Exception If the `$HASH_ALGO` is not supported.
      */
     public static function parse(
         string $token,
-        int $KEY_LENGTH = 33,
-        string $HASH_ALGO = 'sha3-384',
+        int $KEY_LENGTH = API_KEY_DEFAULT_LENGTH,
+        string $HASH_ALGO = API_KEY_DEFAULT_ALGO,
     ) : array
     {
         if( ! in_array($HASH_ALGO, hash_hmac_algos()))
@@ -703,8 +725,8 @@ class Key
      * @param string $APP_KEY The application-specific secret key used for hashing.
      * @param string $label An optional label for this key. Defaults to an empty string.
      * @param string $ip The IP address associated with this key. Defaults to an empty string.
-     * @param int $KEY_LENGTH The length of the original random keys in bytes. Defaults to 33.
-     * @param string $HASH_ALGO The hashing algorithm used for HMAC. Defaults to 'sha3-384'.
+     * @param int $KEY_LENGTH The length of the original random keys in bytes. Defaults to API_KEY_DEFAULT_LENGTH.
+     * @param string $HASH_ALGO The hashing algorithm used for HMAC. Defaults to API_KEY_DEFAULT_ALGO.
      * @return self A new Key object initialized with the provided data.
      */
     public static function create(
@@ -713,8 +735,8 @@ class Key
         string $APP_KEY,
         string $label = '',
         string $ip = '',
-        int $KEY_LENGTH = 33,
-        string $HASH_ALGO = 'sha3-384',
+        int $KEY_LENGTH = API_KEY_DEFAULT_LENGTH,
+        string $HASH_ALGO = API_KEY_DEFAULT_ALGO,
     ) : self
     {
         return new self(
@@ -831,16 +853,16 @@ class ApiKeyMemory extends Key
      * @param string $label A descriptive label for the API key.
      * @param string $ip The IP address associated with this key (optional, defaults to '').
      * @param string $APP_KEY The application-specific secret key used for signing (defaults to the global APP_KEY constant).
-     * @param int $KEY_LENGTH The desired length of the public and private keys (defaults to 33).
-     * @param string $HASH_ALGO The hashing algorithm to use (defaults to 'sha3-384').
+     * @param int $KEY_LENGTH The desired length of the public and private keys (defaults to API_KEY_DEFAULT_LENGTH).
+     * @param string $HASH_ALGO The hashing algorithm to use (defaults to API_KEY_DEFAULT_ALGO).
      * @return string The generated API token.
      */
     public static function make(
         string $label,
         string $ip = '',
         string $APP_KEY = APP_KEY,
-        int $KEY_LENGTH = 33,
-        string $HASH_ALGO = 'sha3-384',
+        int $KEY_LENGTH = API_KEY_DEFAULT_LENGTH,
+        string $HASH_ALGO = API_KEY_DEFAULT_ALGO,
     ) : string
     {
         if(self::$debug){
@@ -874,16 +896,16 @@ class ApiKeyMemory extends Key
      * @param string $token The API token to check.
      * @param string $ip The IP address associated with this key (optional, defaults to '').
      * @param string $APP_KEY The application-specific secret key used for signing (defaults to the global APP_KEY constant).
-     * @param int $KEY_LENGTH The expected length of the public and private keys (defaults to 33).
-     * @param string $HASH_ALGO The hashing algorithm used (defaults to 'sha3-384').
+     * @param int $KEY_LENGTH The expected length of the public and private keys (defaults to API_KEY_DEFAULT_LENGTH).
+     * @param string $HASH_ALGO The hashing algorithm used (defaults to API_KEY_DEFAULT_ALGO).
      * @return bool Returns true if the token is valid, false otherwise.
      */
     public static function check(
         string $token,
         string $ip = '',
         string $APP_KEY = APP_KEY,
-        int $KEY_LENGTH = 33,
-        string $HASH_ALGO = 'sha3-384',
+        int $KEY_LENGTH = API_KEY_DEFAULT_LENGTH,
+        string $HASH_ALGO = API_KEY_DEFAULT_ALGO,
     ) : bool
     {
         if(self::$debug){
@@ -1111,7 +1133,7 @@ class CLI
         echo("  --label=<label>             Label for the API key (required for generate).\n");
         echo("  --ip=<ip>                   IP address of the client (optional for generate).\n");
         echo("  --token=<token>             The API key token to check (required for check).\n");
-        echo("  --key-length=<key-length>   The size of key building block (optional: default 33).\n");
+        echo("  --key-length=<key-length>   The size of key building block (optional: default API_KEY_DEFAULT_LENGTH).\n");
         echo("  --algo=<algo>               The algorithm used for hmac hashing (optional: default sha3-384). See `hash_hmac_algos()` for supported algorithms.\n");
         echo("  --verbose                   Print verbose messages (optional: false).\n");
         echo("\n");
@@ -1195,10 +1217,10 @@ class CLI
         $path = self::$options['path'];
         $label = self::$options['label'];
         $ip = isset(self::$options['ip']) ? self::$options['ip'] : '';
-        $key_length = isset(self::$options['key-length']) ? self::$options['key-length'] : 33;
-        $algo = isset(self::$options['algo']) ? self::$options['algo'] : 'sha3-384';
+        $key_length = isset(self::$options['key-length']) ? self::$options['key-length'] : API_KEY_DEFAULT_LENGTH;
+        $algo = isset(self::$options['algo']) ? self::$options['algo'] : API_KEY_DEFAULT_ALGO;
 
-        $key_length = is_int($key_length) && $key_length >= 1 ? $key_length : 33;
+        $key_length = is_int($key_length) && $key_length >= 1 ? $key_length : API_KEY_DEFAULT_LENGTH;
 
         try {
             /**
@@ -1261,10 +1283,10 @@ class CLI
         $path = self::$options['path'];
         $token = self::$options['token'];
         $ip = isset(self::$options['ip']) ? self::$options['ip'] : '';
-        $key_length = isset(self::$options['key-length']) ? self::$options['key-length'] : 33;
-        $algo = isset(self::$options['algo']) ? self::$options['algo'] : 'sha3-384';
+        $key_length = isset(self::$options['key-length']) ? self::$options['key-length'] : API_KEY_DEFAULT_LENGTH;
+        $algo = isset(self::$options['algo']) ? self::$options['algo'] : API_KEY_DEFAULT_ALGO;
 
-        $key_length = is_int($key_length) && $key_length >= 1 ? $key_length : 33;
+        $key_length = is_int($key_length) && $key_length >= 1 ? $key_length : API_KEY_DEFAULT_LENGTH;
 
         try {
             /**
