@@ -12,6 +12,123 @@
 define('API_KEY_VERSION', '0.0.1');
 
 /**
+ * Provides static methods for encoding and decoding strings using a URL-safe
+ * variant of Base64. This encoding scheme replaces the standard Base64
+ * characters '+' and '/' with '-' and '_', respectively, and removes
+ * any trailing '=' padding characters. This makes the encoded strings
+ * suitable for use in URLs and filenames without requiring further encoding.
+ */
+class base64
+{
+    /**
+     * Converts a plain text string to its URL-safe Base64 representation.
+     *
+     * This method first performs standard Base64 encoding on the input string
+     * and then replaces any '+' characters with '-', '/' characters with '_',
+     * and removes any trailing '=' padding.
+     *
+     * @param string $plainText The plain text string to convert.
+     * @return string The URL-safe Base64 representation of the input string.
+     *
+     * @example
+     * ```php
+     * $text = "Hello World!";
+     * $urlSafeBase64 = base64::encode($text); // Output: SGVsbG8gV29ybGQh
+     *
+     * $textWithSpecial = "String with + and /=";
+     * $urlSafeBase64Special = base64::encode($textWithSpecial); // Output: U3RyaW5nIHdpdGggLSBhbmQgXw
+     * ```
+     */
+    public static function encode(string $plainText) : string
+    {
+        $base64 = base64_encode($plainText);
+        return str_replace(['+', '/', '='], ['-', '_', ''], $base64);
+    }
+
+    /**
+     * Converts a URL-safe Base64 string back to its original plain text.
+     *
+     * This method reverses the URL-safe modifications by replacing '-' with '+'
+     * and '_' with '/'. It also adds back any necessary '=' padding characters
+     * before performing standard Base64 decoding.
+     *
+     * @param string $base64Url The URL-safe Base64 string to convert.
+     * @return string The original plain text representation.
+     *
+     * @example
+     * ```php
+     * $urlSafe = "SGVsbG8gV29ybGQh";
+     * $originalText = base64::decode($urlSafe); // Output: Hello World!
+     *
+     * $urlSafeSpecial = "U3RyaW5nIHdpdGggLSBhbmQgXw";
+     * $originalTextSpecial = base64::decode($urlSafeSpecial); // Output: String with + and /=
+     * ```
+     */
+    public static function decode(string $base64Url) : string
+    {
+        $base64 = str_replace(['-', '_'], ['+', '/'], $base64Url);
+        // Add padding if necessary
+        $remainder = strlen($base64) % 4;
+        if ($remainder) {
+            $base64 .= str_repeat('=', 4 - $remainder);
+        }
+        return base64_decode($base64);
+    }
+
+    /**
+     * Tests the URL-safe Base64 encoding and decoding methods.
+     *
+     * This method performs a series of tests with various input strings,
+     * including those with special characters and different padding scenarios,
+     * to ensure that the `encode()` and `decode()` methods function correctly.
+     * It uses PHP's `assert()` function to verify the expected outcomes.
+     *
+     * @param bool $debug Optional. If set to `true`, detailed debug information
+     * will be displayed for each test case, including the encoded string,
+     * the decoded string, and whether the decoded string matches the
+     * original. Defaults to `false`.
+     * @return void
+     *
+     * @example
+     * ```php
+     * base64::test(); // Runs the tests. No output on success, errors on failure.
+     * base64::test(true); // Runs the tests with detailed debug output.
+     * ```
+     */
+    public static function test(bool $debug = false)
+    {
+        $testStrings = [
+            // '',
+            'A',
+            'Hello',
+            'World!',
+            '12345',
+            '~!@#$%^&*()_+=-`',
+            'السلام عليكم ورحمة الله تعالى وبركاته', // Arabic characters
+            '你好，世界', // Chinese characters
+            '你好 👋 世界🌍', // Chinese characters with emojis
+            'This string has + and /',
+            'Ends with one =',
+            'Ends with two ==',
+        ];
+
+        foreach($testStrings as $originalText) {
+            $encoded = self::encode($originalText);
+            $decoded = self::decode($encoded);
+            $match = $decoded === $originalText;
+            if($debug){
+                var_dump([
+                    $encoded,
+                    $decoded,
+                    $match,
+                ]);
+            }
+            assert($match);
+        }
+    }
+}
+
+/**
  * Provides simple XOR-based encryption and decryption functionalities.
  *
  * This class offers static methods for encrypting and decrypting strings using a provided key.
@@ -149,39 +266,27 @@ class XoRx
     {
         self::$debug = $debug;
 
-        $text = "Salam World!!!";
-        $key = strval(strlen($text));
-        $encrypted = self::encrypt($text, $key);
-        $decrypted = self::decrypt($encrypted, $key);
-        if($debug) var_dump([
-            'key1' => $key,
-            'key2' => self::key($text, $key),
-            'encrypted' => $encrypted,
-            'decrypted' => $decrypted,
-            'assert1' => ! empty($encrypted),
-            'assert2' => $text !== $encrypted,
-            'assert3' => $text === $decrypted,
-        ]);
-        assert( ! empty($encrypted));
-        assert($text !== $encrypted);
-        assert($text === $decrypted);
-
-        $text = str_repeat('x', 100);
-        $key = strval(strlen($text));
-        $encrypted = self::encrypt($text, $key);
-        $decrypted = self::decrypt($encrypted, $key);
-        if($debug) var_dump([
-            'key1' => $key,
-            'key2' => self::key($text, $key),
-            'encrypted' => $encrypted,
-            'decrypted' => $decrypted,
-            'assert1' => ! empty($encrypted),
-            'assert2' => $text !== $encrypted,
-            'assert3' => $text === $decrypted,
-        ]);
-        assert( ! empty($encrypted));
-        assert($text !== $encrypted);
-        assert($text === $decrypted);
+        foreach([
+            "Salam World!!!",
+            str_repeat('x', 1000),
+            dechex(intval(date('YmdHis'))),
+        ] as $text){
+            $key = strval(strlen($text));
+            $encrypted = self::encrypt($text, $key);
+            $decrypted = self::decrypt($encrypted, $key);
+            if($debug) var_dump([
+                'key1' => $key,
+                'key2' => self::key($text, $key),
+                'encrypted' => $encrypted,
+                'decrypted' => $decrypted,
+                'assert1' => ! empty($encrypted),
+                'assert2' => $text !== $encrypted,
+                'assert3' => $text === $decrypted,
+            ]);
+            assert( ! empty($encrypted));
+            assert($text !== $encrypted);
+            assert($text === $decrypted);
+        }
     }
 }
 
@@ -367,7 +472,12 @@ class Key
             echo('hmac[get_defined_vars]: ' . PHP_EOL);
             var_dump(get_defined_vars());
         }
-        return hash_hmac($HASH_ALGO, $text, $APP_KEY, false);
+        return hash_hmac(
+            algo: $HASH_ALGO,
+            data: $text,
+            key: $APP_KEY,
+            binary: false,
+        );
     }
 
     /**
@@ -1126,6 +1236,7 @@ class CLI
     public static function handle_test()
     {
         $verbose = self::$options['verbose'];
+        base64::test(debug: $verbose);
         XoRx::test(debug: $verbose);
         Key::test(debug: $verbose);
         ApiKeyMemory::test(debug: $verbose);
