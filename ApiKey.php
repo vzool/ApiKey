@@ -98,7 +98,7 @@ class base64
     public static function test(bool $debug = false)
     {
         $testStrings = [
-            // '',
+            '',
             'A',
             'Hello',
             'World!',
@@ -264,7 +264,7 @@ class XoRx
      */
     public static function test(bool $debug = false)
     {
-        self::$debug = $debug;
+        // self::$debug = $debug;
 
         foreach([
             "Salam World!!!",
@@ -353,7 +353,11 @@ class Key
         $payload = json_encode([$label, $ip, $time]);
         $length = strlen($payload);
         $encrypted_payload = XoRx::encrypt($payload, $private_key);
-        $terminator = hash($HASH_ALGO, $private_key);
+        $terminator = hash(
+            algo: $HASH_ALGO,
+            data: $private_key,
+            binary: false,
+        );
         $data = bin2hex(random_bytes(random_int(1, $this->KEY_LENGTH)))
             . $this->hashed_public_key
             . $private_key
@@ -422,7 +426,11 @@ class Key
                 'result' => $private_key,
             ]);
         }
-        $terminator = hash($this->HASH_ALGO, $private_key);
+        $terminator = hash(
+            algo: $this->HASH_ALGO,
+            data: $private_key,
+            binary: false,
+        );
         $terminal = explode($terminator, $this->data);
         if(static::$debug){
             echo("terminator($terminator)" . PHP_EOL);
@@ -490,11 +498,12 @@ class Key
     {
         assert( ! empty($this->public_key));
         list($private_key, $payload) = $this->private_key();
-        return $this->public_key . self::hmac(
+        $token = $this->public_key . self::hmac(
             text: $private_key,
             APP_KEY: $this->APP_KEY,
             HASH_ALGO: $this->HASH_ALGO,
         );
+        return base64::encode(hex2bin($token));
     }
 
     /**
@@ -562,7 +571,7 @@ class Key
     public function valid(string $token, string $ip = '') : bool
     {
         $parsed = self::parse(
-            token: $token,
+            token: bin2hex(base64::decode($token)),
             KEY_LENGTH: $this->KEY_LENGTH,
             HASH_ALGO: $this->HASH_ALGO,
         );
@@ -614,12 +623,15 @@ class Key
      */
     public static function anatomy(string $token, Key $key)
     {
-        $parsed = Key::parse(token: $token);
+        $parsed = Key::parse(
+            token: bin2hex(base64::decode($token)),
+        );
         
         list($public_key, $shared_key) = $parsed ?? [NULL, NULL];
 
         return [
             'token' => $token,
+            'token_hex' => bin2hex(base64::decode($token)),
             'public_key[0]' => $key->public_key,
             'public_key[1]' => $public_key,
             'shared_key' => $shared_key,
@@ -693,7 +705,7 @@ class Key
                 if($debug) var_dump($token);
                 assert( ! empty($token));
                 assert($key->valid($token));
-                assert( ! $key->valid($token . 'x'));
+                assert( ! $key->valid($token . base64::encode('x')));
                 assert( ! $key->valid('x'));
                 assert( ! $key->valid(''));
                 $key2 = Key::create(
@@ -713,7 +725,7 @@ class Key
                 assert($key2->valid($token));
                 assert($key2->valid($token, '127.0.0.1'));
                 assert( ! $key2->valid($token, '127.0.0.2'));
-                assert( ! $key2->valid($token . 'y'));
+                assert( ! $key2->valid($token . base64::encode('y')));
                 assert( ! $key2->valid('y'));
                 assert( ! $key2->valid(''));
                 assert( ! empty($token));
@@ -827,10 +839,11 @@ class ApiKeyMemory extends Key
             echo("CHECK(token: $token)" . PHP_EOL);
         }
         $parsed = self::parse(
-            token: $token,
+            token: bin2hex(base64::decode($token)),
             KEY_LENGTH: $KEY_LENGTH,
             HASH_ALGO: $HASH_ALGO,
         );
+
         if( ! $parsed) return false;
 
         list($public_key, $shared_key) = $parsed;
