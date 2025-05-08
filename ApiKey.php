@@ -244,7 +244,8 @@ class Key
             APP_KEY: $this->APP_KEY,
             HASH_ALGO: $this->HASH_ALGO,
         );
-        $payload = json_encode([$label, $ip, date('Y-m-d H:i:s')]);
+        $time = intval(date('YmdHis'));
+        $payload = json_encode([$label, $ip, $time]);
         $length = strlen($payload);
         $encrypted_payload = XoRx::encrypt($payload, $private_key);
         $terminator = hash($HASH_ALGO, $private_key);
