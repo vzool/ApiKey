@@ -105,7 +105,8 @@ require_once 'ApiKey.php';
 define('APP_KEY', 'your-secret-app-key'); // Define APP_KEY
 
 // Generate and store a key in memory.
-$token = ApiKeyMemory::make(label: 'My Memory Key', ip: '192.168.1.100');
+$key = ApiKeyMemory::make(label: 'My Memory Key', ip: '192.168.1.100');
+$token = $key->token();
 echo "Token: $token\n";
 
 // Validate a token from memory.
@@ -142,7 +143,8 @@ define('API_KEY_PATH', 'tmp/path/to/your/storage'); // Define where to store the
 define('APP_KEY', 'your-secret-app-key');  //Define APP_KEY
 
 // Generate and store a key in the file system.
-$token = ApiKeyFS::make(label: 'My File System Key', ip: '192.168.1.101');
+$key = ApiKeyFS::make(label: 'My File System Key', ip: '192.168.1.101');
+$token = $key->token();
 echo "Token: $token\n";
 
 // Validate a token from the file system.

@@ -774,6 +774,7 @@ class Key
                     KEY_LENGTH: $KEY_LENGTH,
                     HASH_ALGO: $algo,
                 );
+                assert( ! empty($key));
                 if($debug) var_dump($key);
                 $token = $key->token();
                 if($debug) var_dump($token);
@@ -855,7 +856,7 @@ class ApiKeyMemory extends Key
      * @param string $APP_KEY The application-specific secret key used for signing (defaults to the global APP_KEY constant).
      * @param int $KEY_LENGTH The desired length of the public and private keys (defaults to API_KEY_DEFAULT_LENGTH).
      * @param string $HASH_ALGO The hashing algorithm to use (defaults to API_KEY_DEFAULT_ALGO).
-     * @return string The generated API token.
+     * @return Key The generated API token object.
      */
     public static function make(
         string $label,
@@ -863,7 +864,7 @@ class ApiKeyMemory extends Key
         string $APP_KEY = APP_KEY,
         int $KEY_LENGTH = API_KEY_DEFAULT_LENGTH,
         string $HASH_ALGO = API_KEY_DEFAULT_ALGO,
-    ) : string
+    ) : Key
     {
         if(self::$debug){
             echo('=================================================' . PHP_EOL);
@@ -887,7 +888,7 @@ class ApiKeyMemory extends Key
             var_dump(self::$memory);
             echo('-------------------------------------------------' . PHP_EOL);
         }
-        return $key->token();
+        return $key;
     }
 
     /**
@@ -966,11 +967,13 @@ class ApiKeyMemory extends Key
     {
         $APP_KEY = '65162b0b-784d-4e15-88b4-459d5caadf3f';
         self::$debug = $debug;
-        $token = self::make(
+        $key = self::make(
             label: 'x',
             APP_KEY: $APP_KEY,
             ip: '127.0.0.1',
         );
+        assert( ! empty($key));
+        $token = $key->token();
         assert( ! empty($token));
         assert(self::check($token, APP_KEY: $APP_KEY));
         assert(self::check($token, APP_KEY: $APP_KEY, ip: '127.0.0.1'));
@@ -1063,10 +1066,12 @@ class ApiKeyFS extends ApiKeyMemory
          */
         define('APP_KEY', '94473B99-23CB-4A4D-A315-C0F9B8C9B39A');
         self::$debug = $debug;
-        $token = self::make(
+        $key = self::make(
             label: 'x',
             ip: '127.0.0.1',
         );
+        assert( ! empty($key));
+        $token = $key->token();
         assert( ! empty($token));
         assert(self::check($token));
         assert(self::check($token, ip: '127.0.0.1'));
@@ -1231,12 +1236,14 @@ class CLI
              * @ignore
              */
             define('APP_KEY', $app_key);
-            $token = ApiKeyFS::make(
+            $key = ApiKeyFS::make(
                 label: $label,
                 ip: $ip,
                 KEY_LENGTH: $key_length,
                 HASH_ALGO: $algo,
             );
+            assert( ! empty($key));
+            $token = $key->token();
             if($verbose) echo("Generated API Key Token:\n");
             echo($token);
             if($verbose) echo("\n");
