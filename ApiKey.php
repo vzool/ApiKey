@@ -39,7 +39,7 @@ define('API_KEY_DEFAULT_ALGO', 'sha3-384');
  * characters '+' and '/' with '-' and '_', respectively, and removes
  * any trailing '=' padding characters. This makes the encoded strings
  * suitable for use in URLs and filenames without requiring further encoding.
- * 
+ *
  * @since 0.0.1
  */
 class base64
@@ -62,7 +62,7 @@ class base64
      * $textWithSpecial = "String with + and /=";
      * $urlSafeBase64Special = base64::encode($textWithSpecial); // Output: U3RyaW5nIHdpdGggLSBhbmQgXw
      * ```
-     * 
+     *
      * @since 0.0.1
      */
     public static function encode(string $plainText) : string
@@ -89,7 +89,7 @@ class base64
      * $urlSafeSpecial = "U3RyaW5nIHdpdGggLSBhbmQgXw";
      * $originalTextSpecial = base64::decode($urlSafeSpecial); // Output: String with + and /=
      * ```
-     * 
+     *
      * @since 0.0.1
      */
     public static function decode(string $base64Url) : string
@@ -122,7 +122,7 @@ class base64
      * base64::test(); // Runs the tests. No output on success, errors on failure.
      * base64::test(true); // Runs the tests with detailed debug output.
      * ```
-     * 
+     *
      * @since 0.0.1
      */
     public static function test(bool $debug = false)
@@ -166,7 +166,7 @@ class base64
  * by repeatedly hashing it.
  * 
  * REF https://www.codecauldron.dev/2021/02/12/simple-xor-encryption-in-php/
- * 
+ *
  * @since 0.0.1
  */
 class XoRx
@@ -178,7 +178,7 @@ class XoRx
      * decryption will be echoed to the output. Defaults to `false`.
      *
      * @var bool
-     * 
+     *
      * @since 0.0.1
      */
     public static bool $debug = false;
@@ -193,7 +193,7 @@ class XoRx
      * @param string $key       The initial encryption key.
      * @param string $algo      The hashing algorithm to use for key extension (default: API_KEY_DEFAULT_ALGO).
      * @return string The generated key, guaranteed to be at least as long as the plaintext.
-     * 
+     *
      * @since 0.0.1
      */
     public static function key(string $plainText, string $key, string $algo = API_KEY_DEFAULT_ALGO) : string
@@ -224,7 +224,7 @@ class XoRx
      * @param string $key       The encryption key.
      * @param string $algo      The hashing algorithm used to extend the key (default: API_KEY_DEFAULT_ALGO).
      * @return string The encrypted string in lowercase hexadecimal format.
-     * 
+     *
      * @since 0.0.1
      */
     public static function encrypt(string $plainText, string $key, string $algo = API_KEY_DEFAULT_ALGO) : string
@@ -266,7 +266,7 @@ class XoRx
      * @param string $key           The decryption key (must match the encryption key).
      * @param string $algo      The hashing algorithm used to extend the key during encryption (default: API_KEY_DEFAULT_ALGO).
      * @return string The original decrypted plaintext string.
-     * 
+     *
      * @since 0.0.1
      */
     public static function decrypt(string $encryptedText, string $key, string $algo = API_KEY_DEFAULT_ALGO) : string
@@ -301,7 +301,7 @@ class XoRx
      *
      * @param bool $debug Enables or disables debugging output for the tests (default: false).
      * @return void
-     * 
+     *
      * @since 0.0.1
      */
     public static function test(bool $debug = false)
@@ -335,7 +335,7 @@ class XoRx
 /**
  * Class Key: Represents a cryptographic key with associated metadata and functionality
  * for generating, validating, and parsing tokens.
- * 
+ *
  * @since 0.0.1
  */
 class Key
@@ -344,7 +344,7 @@ class Key
      * The public key associated with this Key object.
      *
      * @var string
-     * 
+     *
      * @since 0.0.1
      */
     public string $public_key;
@@ -354,7 +354,7 @@ class Key
      * Defaults to false.
      *
      * @var bool
-     * 
+     *
      * @since 0.0.1
      */
     public static bool $debug = false;
@@ -375,7 +375,7 @@ class Key
      * @param string $data Optional pre-existing data associated with the key.
      * @param int $created Optional pre-existing creation datetime. If not provided,
      * @throws Exception If `$APP_KEY` is empty or if the `$HASH_ALGO` is not supported.
-     * 
+     *
      * @since 0.0.1
      */
     public function __construct(
@@ -436,10 +436,41 @@ class Key
     }
 
     /**
+     * Generates the file path for storing data associated with this instance.
+     *
+     * The file path is structured based on the creation timestamp and a hashed
+     * version of the public key. This ensures a logical and distributed storage
+     * structure.
+     *
+     * @return string The generated file path. The path consists of year, month,
+     * and day subdirectories, followed by the hashed public key
+     * as the filename. Directory separators are platform-specific.
+     *
+     * @throws \AssertionError If the 'created' timestamp or 'hashed_public_key'
+     * properties are not yet set.
+     *
+     * @since 0.0.1
+     */
+    public function file() : string
+    {
+        assert($this->created);
+        assert($this->hashed_public_key);
+        $time = strval($this->created);
+        return implode(DIRECTORY_SEPARATOR, [
+            substr($time, 0, 4), // xxxx year
+            substr($time, 4, 2), // xx month
+            substr($time, 6, 2), // xx day
+        ])
+        . DIRECTORY_SEPARATOR
+        . $this->hashed_public_key
+        ;
+    }
+
+    /**
      * Generates a random key of the specified length.
      *
      * @return string A hexadecimal representation of the random key.
-     * 
+     *
      * @since 0.0.1
      */
     private function random_key() : string
@@ -456,7 +487,7 @@ class Key
      *
      * @return array The extracted private key with IP.
      * @throws AssertionFailedError If the length of `$this->data` is less than four times `$this->KEY_LENGTH` in non-debug mode.
-     * 
+     *
      * @since 0.0.1
      */
     private function private_key()
@@ -527,7 +558,7 @@ class Key
      * @param string $APP_KEY The secret key to use for the HMAC.
      * @param string $HASH_ALGO The hashing algorithm to use. Defaults to API_KEY_DEFAULT_ALGO.
      * @return string The hexadecimal representation of the HMAC.
-     * 
+     *
      * @since 0.0.1
      */
     public static function hmac(
@@ -553,7 +584,7 @@ class Key
      *
      * @return string The generated token.
      * @throws AssertionFailedError If `$this->public_key` is empty in non-debug mode.
-     * 
+     *
      * @since 0.0.1
      */
     public function token() : string
@@ -589,7 +620,7 @@ class Key
      * @return array An array containing the public key (at index 0) and the shared key (at index 1),
      * or an empty array if the token format is invalid or the hash algorithm is unsupported.
      * @throws Exception If the `$HASH_ALGO` is not supported.
-     * 
+     *
      * @since 0.0.1
      */
     public static function parse(
@@ -668,7 +699,7 @@ class Key
      *
      * @param string $token The token to validate.
      * @return bool True if the token is valid, false otherwise.
-     * 
+     *
      * @since 0.0.1
      */
     public function valid(string $token, string $ip = '') : bool
@@ -716,7 +747,7 @@ class Key
      * Returns an associative array representing the Key object's label, IP address, and data.
      *
      * @return array An associative array with keys 'label', 'ip', and 'data'.
-     * 
+     *
      * @since 0.0.1
      */
     public function dict()
@@ -736,7 +767,7 @@ class Key
      * @return array An associative array containing the token, extracted public key, shared key,
      * the Key object's public key and hashed public key, the Key object's data,
      * and a boolean indicating if the token is valid for the given Key object.
-     * 
+     *
      * @since 0.0.1
      */
     public static function anatomy(string $token, Key $key)
@@ -771,7 +802,7 @@ class Key
      * @param int $KEY_LENGTH The length of the original random keys in bytes. Defaults to API_KEY_DEFAULT_LENGTH.
      * @param string $HASH_ALGO The hashing algorithm used for HMAC. Defaults to API_KEY_DEFAULT_ALGO.
      * @return self A new Key object initialized with the provided data.
-     * 
+     *
      * @since 0.0.1
      */
     public static function create(
@@ -800,7 +831,7 @@ class Key
      *
      * @param bool $debug If true, enables verbose output during the tests. Defaults to false.
      * @return void
-     * 
+     *
      * @since 0.0.1
      */
     public static function test(bool $debug = false)
@@ -860,7 +891,7 @@ class Key
  * Class ApiKeyMemory: Extends the Key class to provide an in-memory storage mechanism for API keys.
  * This class is primarily intended for development or testing environments
  * where persistent storage is not required.
- * 
+ *
  * @since 0.0.1
  */
 class ApiKeyMemory extends Key
@@ -870,7 +901,7 @@ class ApiKeyMemory extends Key
      * A static array that holds the API keys in memory.
      * The keys of this array are the hashed public keys, and the values
      * are arrays representing the key data.
-     * 
+     *
      * @since 0.0.1
      */
     private static $memory = [];
@@ -881,7 +912,7 @@ class ApiKeyMemory extends Key
      * @param string $hashed_public_key The hashed version of the public key, used as the storage key.
      * @param Key $key The Key object to save.
      * @return bool Returns true if the key was successfully saved.
-     * 
+     *
      * @since 0.0.1
      */
     protected static function save(string $hashed_public_key, Key $key) : bool
@@ -895,7 +926,7 @@ class ApiKeyMemory extends Key
      *
      * @param string $hashed_public_key The hashed version of the public key to look up.
      * @return array|null Returns an array containing the key's data if found, otherwise NULL.
-     * 
+     *
      * @since 0.0.1
      */
     protected static function load(string $hashed_public_key)
@@ -912,7 +943,7 @@ class ApiKeyMemory extends Key
      * @param int $KEY_LENGTH The desired length of the public and private keys (defaults to API_KEY_DEFAULT_LENGTH).
      * @param string $HASH_ALGO The hashing algorithm to use (defaults to API_KEY_DEFAULT_ALGO).
      * @return Key The generated API token object.
-     * 
+     *
      * @since 0.0.1
      */
     public static function make(
@@ -957,7 +988,7 @@ class ApiKeyMemory extends Key
      * @param int $KEY_LENGTH The expected length of the public and private keys (defaults to API_KEY_DEFAULT_LENGTH).
      * @param string $HASH_ALGO The hashing algorithm used (defaults to API_KEY_DEFAULT_ALGO).
      * @return bool Returns true if the token is valid, false otherwise.
-     * 
+     *
      * @since 0.0.1
      */
     public static function check(
@@ -1021,7 +1052,7 @@ class ApiKeyMemory extends Key
      *
      * @param bool $debug Enables or disables debug output (defaults to false).
      * @return void
-     * 
+     *
      * @since 0.0.1
      */
     public static function test(bool $debug = false)
@@ -1050,7 +1081,7 @@ class ApiKeyMemory extends Key
  * This class provides methods for saving, loading, and managing API keys,
  * storing them as JSON files within a designated directory. It inherits
  * functionality from `ApiKeyMemory`.
- * 
+ *
  * @since 0.0.1
  */
 class ApiKeyFS extends ApiKeyMemory
@@ -1065,7 +1096,7 @@ class ApiKeyFS extends ApiKeyMemory
      *
      * @param string $file The name of the file (which will be the hashed public key).
      * @return string The full path to the API key file.
-     * 
+     *
      * @since 0.0.1
      */
     protected static function path(string $file) : string
@@ -1086,7 +1117,7 @@ class ApiKeyFS extends ApiKeyMemory
      * @param string $hashed_public_key The hashed public key used as the filename.
      * @param Key $key The `Key` object to be saved.
      * @return bool True if the key was saved successfully, false otherwise.
-     * 
+     *
      * @since 0.0.1
      */
     protected static function save(string $hashed_public_key, Key $key) : bool
@@ -1105,7 +1136,7 @@ class ApiKeyFS extends ApiKeyMemory
      *
      * @param string $hashed_public_key The hashed public key used to determine the filename.
      * @return array|null An associative array representing the API key data, or null if the file is empty or does not exist.
-     * 
+     *
      * @since 0.0.1
      */
     protected static function load(string $hashed_public_key)
@@ -1123,7 +1154,7 @@ class ApiKeyFS extends ApiKeyMemory
      *
      * @param bool $debug Optional. If true, enables debugging output. Defaults to false.
      * @return void
-     * 
+     *
      * @since 0.0.1
      */
     public static function test(bool $debug = false)
@@ -1160,7 +1191,7 @@ class ApiKeyFS extends ApiKeyMemory
  * generating new API keys, checking the validity of existing keys,
  * and running internal tests. It relies on the `ApiKeyFS` class for
  * the underlying API key storage and validation logic.
- * 
+ *
  * @since 0.0.1
  */
 class CLI
@@ -1170,7 +1201,7 @@ class CLI
      * The keys of the array are the option names (without the '--' prefix),
      * and the values are the corresponding option values. Boolean flags
      * will have a value of `true`.
-     * 
+     *
      * @since 0.0.1
      */
     public static $options = [];
@@ -1185,7 +1216,7 @@ class CLI
      * @global array $argv The global array containing command-line arguments.
      *
      * @return void
-     * 
+     *
      * @since 0.0.1
      */
     public static function display_help()
@@ -1239,7 +1270,7 @@ class CLI
      * @global int $argc The number of command-line arguments.
      *
      * @return void
-     * 
+     *
      * @since 0.0.1
      */
     public static function parse()
@@ -1276,7 +1307,7 @@ class CLI
      * is displayed, and the script exits with an error code.
      *
      * @return void
-     * 
+     *
      * @since 0.0.1
      */
     public static function handle_generate()
@@ -1347,7 +1378,7 @@ class CLI
      * message is displayed, and the script exits with an error code.
      *
      * @return void
-     * 
+     *
      * @since 0.0.1
      */
     public static function handle_check()
@@ -1409,7 +1440,7 @@ class CLI
      * it prints "ok" to indicate successful completion.
      *
      * @return void
-     * 
+     *
      * @since 0.0.1
      */
     public static function handle_test()
@@ -1436,7 +1467,7 @@ class CLI
      * @global array $argv The global array containing command-line arguments.
      *
      * @return void
-     * 
+     *
      * @since 0.0.1
      */
     public static function run()
@@ -1479,7 +1510,7 @@ class CLI
      * during the test execution. Defaults to `false`.
      *
      * @return void
-     * 
+     *
      * @since 0.0.1
      */
     public static function test(bool $debug = false)
