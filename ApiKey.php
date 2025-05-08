@@ -325,6 +325,7 @@ class Key
      * Must be a supported algorithm by `hash_hmac_algos()`.
      * @param string $hashed_public_key An optional pre-computed hashed public key.
      * @param string $data Optional pre-existing data associated with the key.
+     * @param int $created Optional pre-existing creation datetime. If not provided,
      * @throws Exception If `$APP_KEY` is empty or if the `$HASH_ALGO` is not supported.
      */
     public function __construct(
@@ -335,6 +336,7 @@ class Key
         private string $HASH_ALGO = 'sha3-384',
         public string $hashed_public_key = '',
         public string $data = '',
+        public int $created = 0,
     ) {
         if( ! $APP_KEY) throw new Exception('APP_KEY is required.');
         if( ! in_array($HASH_ALGO, hash_hmac_algos()))
@@ -350,6 +352,7 @@ class Key
             HASH_ALGO: $this->HASH_ALGO,
         );
         $time = intval(date('YmdHis'));
+        $this->created = $time;
         $payload = json_encode([$label, $ip, $time]);
         $length = strlen($payload);
         $encrypted_payload = XoRx::encrypt($payload, $private_key);
@@ -376,6 +379,8 @@ class Key
                 'terminator' => $terminator,
                 'encrypted_payload' => $encrypted_payload,
                 'data' => $data,
+                'time' => $time,
+                'time_hex' => dechex($time),
             ]);
         }
     }
@@ -496,13 +501,25 @@ class Key
      */
     public function token() : string
     {
+        assert( ! empty($this->created));
         assert( ! empty($this->public_key));
         list($private_key, $payload) = $this->private_key();
-        $token = $this->public_key . self::hmac(
-            text: $private_key,
-            APP_KEY: $this->APP_KEY,
-            HASH_ALGO: $this->HASH_ALGO,
-        );
+        $token = $this->public_key
+                . self::hmac(
+                    text: $private_key,
+                    APP_KEY: $this->APP_KEY,
+                    HASH_ALGO: $this->HASH_ALGO,
+                )
+                . dechex($this->created)
+                // . XoRx::encrypt(
+                //     plainText: strval($this->created),
+                //     key: hash(
+                //         $this->HASH_ALGO,
+                //         $this->APP_KEY . $this->public_key,
+                //     ),
+                //     algo: $this->HASH_ALGO,
+                // )
+                ;
         return base64::encode(hex2bin($token));
     }
 
@@ -522,15 +539,30 @@ class Key
         string $HASH_ALGO = 'sha3-384',
     ) : array
     {
-        if( ! in_array($HASH_ALGO, hash_hmac_algos())) throw new Exception('Unsupported hash algorithm(' . $HASH_ALGO . ')');
+        if( ! in_array($HASH_ALGO, hash_hmac_algos()))
+            throw new Exception('Unsupported hash algorithm(' . $HASH_ALGO . ')');
 
-        $HASH_LENGTH = strlen(hash($HASH_ALGO, ''));
-        if(strlen($token) !== $HASH_LENGTH + ($KEY_LENGTH * 2))
+        $public_key_length = $KEY_LENGTH * 2;
+        $shared_key_length = strlen(hash($HASH_ALGO, ''));
+        $time_length = strlen(dechex(intval(date('YmdHis'))));
+
+        $token = bin2hex(base64::decode($token));
+        $expected_length = $public_key_length + $shared_key_length + $time_length;
+        if(static::$debug){
+            var_dump([
+                'public_key_length' => $public_key_length,
+                'shared_key_length' => $shared_key_length,
+                'time_length' => $time_length,
+                'expected_length' => $expected_length,
+                'token' => $token,
+            ]);
+        }
+        if(strlen($token) !== $expected_length)
             return [];
 
-        $public_key = substr($token, 0, -$HASH_LENGTH);
-        $public_key_length = strlen($public_key);
-        $shared_key = substr($token, $public_key_length, $HASH_LENGTH); // !!!
+        $public_key = substr($token, 0, $public_key_length);
+        $shared_key = substr($token, $public_key_length, $shared_key_length);
+        $time = substr($token, $public_key_length + $shared_key_length, $time_length);
 
         if(static::$debug){
             echo('parse' . PHP_EOL);
@@ -539,7 +571,7 @@ class Key
                 'substr' => [
                     $token,
                     0,
-                    -$HASH_LENGTH,
+                    $public_key_length,
                 ],
                 'result' => $public_key,
             ]);
@@ -548,15 +580,25 @@ class Key
                 'substr' => [
                     $token,
                     $public_key_length,
-                    $HASH_LENGTH,
+                    $shared_key_length,
                 ],
                 'result' => $shared_key,
+            ]);
+            echo('time' . PHP_EOL);
+            var_dump([
+                'substr' => [
+                    $token,
+                    $public_key_length + $shared_key_length,
+                    $time_length,
+                ],
+                'result' => $time,
             ]);
         }
 
         return [
             $public_key,
             $shared_key,
+            hexdec($time),
         ];
     }
 
@@ -571,25 +613,36 @@ class Key
     public function valid(string $token, string $ip = '') : bool
     {
         $parsed = self::parse(
-            token: bin2hex(base64::decode($token)),
+            token: $token,
             KEY_LENGTH: $this->KEY_LENGTH,
             HASH_ALGO: $this->HASH_ALGO,
         );
 
         if( ! $parsed) return false;
 
-        list($public_key, $shared_key) = $parsed;
+        list($public_key, $shared_key, $time) = $parsed;
         list($private_key, $payload) = $this->private_key();
         list($label, $stored_ip, $created) = $payload;
 
+        $this->created = $time;
+        $hash = self::hmac(
+            text: $private_key,
+            APP_KEY: $this->APP_KEY,
+            HASH_ALGO: $this->HASH_ALGO,
+        );
         $valid = hash_equals(
-            self::hmac(
-                text: $private_key,
-                APP_KEY: $this->APP_KEY,
-                HASH_ALGO: $this->HASH_ALGO,
-            ),
+            $hash,
             $shared_key,
         );
+
+        if(static::$debug){
+            echo('valid' . PHP_EOL);
+            var_dump([
+                $hash,
+                $shared_key,
+                $valid,
+            ]);
+        }
 
         if( ! empty($ip) && ! empty($stored_ip)){
             return $valid && $ip === $stored_ip;
@@ -623,15 +676,14 @@ class Key
      */
     public static function anatomy(string $token, Key $key)
     {
-        $parsed = Key::parse(
-            token: bin2hex(base64::decode($token)),
-        );
+        $parsed = Key::parse(token: $token);
         
-        list($public_key, $shared_key) = $parsed ?? [NULL, NULL];
+        list($public_key, $shared_key, $time) = $parsed ?? [NULL, NULL, NULL];
 
         return [
             'token' => $token,
             'token_hex' => bin2hex(base64::decode($token)),
+            'time' => $time,
             'public_key[0]' => $key->public_key,
             'public_key[1]' => $public_key,
             'shared_key' => $shared_key,
@@ -839,14 +891,14 @@ class ApiKeyMemory extends Key
             echo("CHECK(token: $token)" . PHP_EOL);
         }
         $parsed = self::parse(
-            token: bin2hex(base64::decode($token)),
+            token: $token,
             KEY_LENGTH: $KEY_LENGTH,
             HASH_ALGO: $HASH_ALGO,
         );
 
         if( ! $parsed) return false;
 
-        list($public_key, $shared_key) = $parsed;
+        list($public_key, $shared_key, $time) = $parsed;
 
         $hashed_public_key = self::hmac(
             text: $public_key,
