@@ -373,7 +373,7 @@ class Key
      * Must be a supported algorithm by `hash_hmac_algos()`.
      * @param string $hashed_public_key An optional pre-computed hashed public key.
      * @param string $data Optional pre-existing data associated with the key.
-     * @param int $created Optional pre-existing creation datetime. If not provided,
+     * @param int $created Optional pre-existing creation datetime. If not provided.
      * @throws Exception If `$APP_KEY` is empty or if the `$HASH_ALGO` is not supported.
      *
      * @since 0.0.1
@@ -392,7 +392,7 @@ class Key
         if( ! in_array($HASH_ALGO, hash_hmac_algos()))
             throw new Exception('Unsupported hash algorithm(' . $HASH_ALGO . ')');
 
-        if($hashed_public_key || $data) return;
+        if($hashed_public_key || $data || $created) return;
 
         $this->public_key = $this->random_key();
         $private_key = $this->random_key() . $this->random_key();
@@ -436,34 +436,67 @@ class Key
     }
 
     /**
-     * Generates the file path for storing data associated with this instance.
+     * Constructs a file path based on a given timestamp and an optional filename.
      *
-     * The file path is structured based on the creation timestamp and a hashed
-     * version of the public key. This ensures a logical and distributed storage
-     * structure.
+     * This static method generates a directory structure using the year, month, and day
+     * extracted from the provided timestamp. The resulting path can optionally
+     * include a filename at the end.
      *
-     * @return string The generated file path. The path consists of year, month,
-     * and day subdirectories, followed by the hashed public key
-     * as the filename. Directory separators are platform-specific.
-     *
-     * @throws \AssertionError If the 'created' timestamp or 'hashed_public_key'
-     * properties are not yet set.
+     * @param int $created A timestamp representing the creation date. This timestamp
+     * is expected to be an integer with a length of 8 digits
+     * (YYYYMMDD format). An assertion will fail if this condition
+     * is not met.
+     * @param string $file An optional filename to append to the generated directory path.
+     * Defaults to an empty string.
+     * @return string The generated file path, with directory separators appropriate
+     * for the operating system. The path will be in the format:
+     * `YYYY/MM/DD[/filename]`.
+     * @throws \AssertionError If the `$created` timestamp is not a non-zero integer
+     * or if its string representation does not have a
+     * length of 8 characters.
      *
      * @since 0.0.1
      */
-    public function file() : string
+    public static function file(int $created, string $file = '') : string
     {
-        assert($this->created);
-        assert($this->hashed_public_key);
-        $time = strval($this->created);
+        assert($created);
+        $time = strval($created);
+        assert(strlen($time) === 14);
         return implode(DIRECTORY_SEPARATOR, [
             substr($time, 0, 4), // xxxx year
             substr($time, 4, 2), // xx month
             substr($time, 6, 2), // xx day
         ])
         . DIRECTORY_SEPARATOR
-        . $this->hashed_public_key
+        . $file
         ;
+    }
+
+    /**
+     * Generates the specific file path for this instance's data storage.
+     *
+     * This method leverages the `file()` static method to create a structured file path.
+     * The path is determined by the instance's creation timestamp and a unique
+     * identifier derived from its hashed public key. This strategy ensures a
+     * well-organized and distributed storage system.
+     *
+     * @return string The generated file path. The path is composed of subdirectories
+     * representing the year, month, and day of creation, followed by
+     * the instance's hashed public key as the filename. The directory
+     * separators are platform-specific.
+     *
+     * @throws \AssertionError If the `hashed_public_key` property of this instance
+     * is not yet set (i.e., is falsy).
+     *
+     * @since 0.0.1
+     */
+    public function file_path() : string
+    {
+        assert($this->hashed_public_key);
+        return self::file(
+            created: $this->created,
+            file: $this->hashed_public_key,
+        );
     }
 
     /**
@@ -799,6 +832,7 @@ class Key
      * @param string $APP_KEY The application-specific secret key used for hashing.
      * @param string $label An optional label for this key. Defaults to an empty string.
      * @param string $ip The IP address associated with this key. Defaults to an empty string.
+     * @param int $created Optional pre-existing creation datetime. If not provided.
      * @param int $KEY_LENGTH The length of the original random keys in bytes. Defaults to API_KEY_DEFAULT_LENGTH.
      * @param string $HASH_ALGO The hashing algorithm used for HMAC. Defaults to API_KEY_DEFAULT_ALGO.
      * @return self A new Key object initialized with the provided data.
@@ -811,6 +845,7 @@ class Key
         string $APP_KEY,
         string $label = '',
         string $ip = '',
+        int $created = 0,
         int $KEY_LENGTH = API_KEY_DEFAULT_LENGTH,
         string $HASH_ALGO = API_KEY_DEFAULT_ALGO,
     ) : self
@@ -823,6 +858,7 @@ class Key
             HASH_ALGO: $HASH_ALGO,
             hashed_public_key: $hashed_public_key,
             data: $data,
+            created: $created,
         );
     }
 
@@ -861,13 +897,16 @@ class Key
                 assert( ! $key->valid($token . base64::encode('x')));
                 assert( ! $key->valid('x'));
                 assert( ! $key->valid(''));
+                $key->file_path();
                 $key2 = Key::create(
                     hashed_public_key: $key->hashed_public_key,
                     data: $key->data,
                     APP_KEY: $APP_KEY,
                     KEY_LENGTH: $KEY_LENGTH,
                     HASH_ALGO: $algo,
+                    created: $key->created,
                 );
+                $key2->file_path();
                 if($debug) var_dump($key2);
                 assert( ! empty($key2));
                 $failed = false;
@@ -909,15 +948,15 @@ class ApiKeyMemory extends Key
     /**
      * Saves a Key object's data into the in-memory storage.
      *
-     * @param string $hashed_public_key The hashed version of the public key, used as the storage key.
      * @param Key $key The Key object to save.
      * @return bool Returns true if the key was successfully saved.
      *
      * @since 0.0.1
      */
-    protected static function save(string $hashed_public_key, Key $key) : bool
+    protected static function save(Key $key) : bool
     {
-        self::$memory[$hashed_public_key] = $key->dict();
+        assert($key->hashed_public_key);
+        self::$memory[$key->hashed_public_key] = $key->dict();
         return true;
     }
 
@@ -925,11 +964,12 @@ class ApiKeyMemory extends Key
      * Loads a key's data from the in-memory storage based on its hashed public key.
      *
      * @param string $hashed_public_key The hashed version of the public key to look up.
+     * @param int $created pre-existing creation datetime. If not provided.
      * @return array|null Returns an array containing the key's data if found, otherwise NULL.
      *
      * @since 0.0.1
      */
-    protected static function load(string $hashed_public_key)
+    protected static function load(string $hashed_public_key, int $created)
     {
         return self::$memory[$hashed_public_key] ?? NULL;
     }
@@ -965,7 +1005,7 @@ class ApiKeyMemory extends Key
             KEY_LENGTH: $KEY_LENGTH,
             HASH_ALGO: $HASH_ALGO,
         );
-        assert(static::save($key->hashed_public_key, $key));
+        assert(static::save($key));
         if(self::$debug){
             echo('=================================================' . PHP_EOL);
             echo("SAVE hashed_public_key: ({$key->hashed_public_key})" . PHP_EOL);
@@ -1018,7 +1058,7 @@ class ApiKeyMemory extends Key
             APP_KEY: $APP_KEY,
             HASH_ALGO: $HASH_ALGO,
         );
-        $key_dict = static::load($hashed_public_key);
+        $key_dict = static::load($hashed_public_key, created: $time);
         $data = $key_dict['data'];
         if(self::$debug){
             echo('=================================================' . PHP_EOL);
@@ -1103,8 +1143,15 @@ class ApiKeyFS extends ApiKeyMemory
     {
         $path = defined('API_KEY_PATH') ? API_KEY_PATH : '.tmp';
         $path .= DIRECTORY_SEPARATOR . 'api_keys' . DIRECTORY_SEPARATOR;
+        $file_path = dirname($file);
+        if($file_path !== '.') $path .= $file_path;
         @mkdir($path, permissions: 0700, recursive: true);
-        return $path . DIRECTORY_SEPARATOR . $file;
+        $path = str_replace(
+            search: str_repeat(DIRECTORY_SEPARATOR, 2),
+            replace: DIRECTORY_SEPARATOR,
+            subject: $path,
+        );
+        return $path . DIRECTORY_SEPARATOR . basename($file);
     }
 
     /**
@@ -1114,16 +1161,17 @@ class ApiKeyFS extends ApiKeyMemory
      * of the `Key` object) is encoded as JSON and written to a file named after
      * the hashed public key.
      *
-     * @param string $hashed_public_key The hashed public key used as the filename.
      * @param Key $key The `Key` object to be saved.
      * @return bool True if the key was saved successfully, false otherwise.
      *
      * @since 0.0.1
      */
-    protected static function save(string $hashed_public_key, Key $key) : bool
+    protected static function save(Key $key) : bool
     {
+        $path = static::path($key->file_path());
+        assert( ! file_exists($path), $path);
         return file_put_contents(
-            self::path($hashed_public_key),
+            $path,
             json_encode($key->dict()),
         ) !== false;
     }
@@ -1135,13 +1183,15 @@ class ApiKeyFS extends ApiKeyMemory
      * and decodes it into an associative array.
      *
      * @param string $hashed_public_key The hashed public key used to determine the filename.
+     * @param int $created pre-existing creation datetime. If not provided.
      * @return array|null An associative array representing the API key data, or null if the file is empty or does not exist.
      *
      * @since 0.0.1
      */
-    protected static function load(string $hashed_public_key)
+    protected static function load(string $hashed_public_key, int $created)
     {
-        $data = file_get_contents(self::path($hashed_public_key));
+        $path = self::path(self::file($created, $hashed_public_key));
+        $data = file_get_contents($path);
         return empty($data) ? NULL : json_decode($data, associative: true);
     }
 
