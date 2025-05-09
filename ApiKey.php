@@ -419,7 +419,7 @@ class Key
             . $encrypted_payload
             . bin2hex(random_bytes(random_int(1, $this->KEY_LENGTH)))
             ;
-        $this->data = $data;
+        $this->data($data);
         if(self::$debug){
             echo('[KEY]' . PHP_EOL);
             var_dump([
@@ -428,11 +428,39 @@ class Key
                 'length' => $length,
                 'terminator' => $terminator,
                 'encrypted_payload' => $encrypted_payload,
-                'data' => $data,
+                'data_hex' => $data,
+                'data_base64' => $this->data,
                 'time' => $time,
                 'time_hex' => dechex($time),
             ]);
         }
+    }
+
+    /**
+     * Manages the internal data of the object, allowing retrieval in hexadecimal format
+     * or setting it from a hexadecimal string.
+     *
+     * When called without any arguments, this method decodes the internal base64
+     * encoded data and returns its hexadecimal representation.
+     *
+     * When called with a hexadecimal string as an argument, it encodes this string
+     * into base64 and updates the internal data of the object. In this case,
+     * the method returns an empty string.
+     *
+     * @param string $data_hex Optional. A hexadecimal string to set as the internal data.
+     * Defaults to an empty string, in which case the current
+     * data is returned in hexadecimal format.
+     * @return string The hexadecimal representation of the internal data if no
+     * argument is provided. An empty string if a hexadecimal string
+     * is provided as an argument.
+     *
+     * @since 0.0.1
+     */
+    private function data(string $data_hex = '') : string
+    {
+        if(empty($data_hex)) return bin2hex(base64::decode($this->data));
+        $this->data = base64::encode(hex2bin($data_hex));
+        return '';
     }
 
     /**
@@ -525,18 +553,19 @@ class Key
      */
     private function private_key()
     {
+        $stored_data = $this->data();
         if(static::$debug){
             echo('private_key' . PHP_EOL);
             var_dump([
                 'assert' => [
-                    'strlen' => strlen($this->data),
+                    'strlen' => strlen($stored_data),
                     'KEY_LENGTH * 4' => $this->KEY_LENGTH * 4,
-                    'result' => strlen($this->data) >= $this->KEY_LENGTH * 4,
+                    'result' => strlen($stored_data) >= $this->KEY_LENGTH * 4,
                 ],
             ]);
         }
-        assert(strlen($this->data) >= $this->KEY_LENGTH * 4);
-        $data = explode($this->hashed_public_key, $this->data);
+        assert(strlen($stored_data) >= $this->KEY_LENGTH * 4);
+        $data = explode($this->hashed_public_key, $stored_data);
         $private_key = substr($data[1], 0, $this->KEY_LENGTH * 4);
         if(static::$debug){
             var_dump([
@@ -553,7 +582,7 @@ class Key
             data: $private_key,
             binary: false,
         );
-        $terminal = explode($terminator, $this->data);
+        $terminal = explode($terminator, $stored_data);
         if(static::$debug){
             echo("terminator($terminator)" . PHP_EOL);
             var_dump($terminal);
@@ -817,7 +846,8 @@ class Key
             'public_key[1]' => $public_key,
             'shared_key' => $shared_key,
             'hashed_public_key' => $key->hashed_public_key,
-            'data' => $key->data,
+            'data_hex' => $key->data(),
+            'data_base64' => $key->data,
             'valid' => $key->valid($token),
         ];
     }
