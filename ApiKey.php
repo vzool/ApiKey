@@ -555,7 +555,7 @@ class Key
     {
         $stored_data = $this->data();
         if(static::$debug){
-            echo('private_key' . PHP_EOL);
+            echo('[private_key]' . PHP_EOL);
             var_dump([
                 'assert' => [
                     'strlen' => strlen($stored_data),
@@ -660,15 +660,14 @@ class Key
                     APP_KEY: $this->APP_KEY,
                     HASH_ALGO: $this->HASH_ALGO,
                 )
-                . dechex($this->created)
-                // . XoRx::encrypt(
-                //     plainText: strval($this->created),
-                //     key: hash(
-                //         $this->HASH_ALGO,
-                //         $this->APP_KEY . $this->public_key,
-                //     ),
-                //     algo: $this->HASH_ALGO,
-                // )
+                . XoRx::encrypt(
+                    plainText: dechex($this->created),
+                    key: hash(
+                        $this->HASH_ALGO,
+                        $this->APP_KEY . $this->public_key,
+                    ),
+                    algo: $this->HASH_ALGO,
+                )
                 ;
         return base64::encode(hex2bin($token));
     }
@@ -696,29 +695,37 @@ class Key
 
         $public_key_length = $KEY_LENGTH * 2;
         $shared_key_length = strlen(hash($HASH_ALGO, ''));
-        $time_length = strlen(dechex(intval(date('YmdHis'))));
+        $random_time = dechex(intval(date('YmdHis')));
+        $encrypted_time = XoRx::encrypt(
+            plainText: $random_time,
+            key: bin2hex(random_bytes(strlen($random_time))),
+            algo: $HASH_ALGO,
+        );
+        $time_length = strlen($encrypted_time);
 
         $token = bin2hex(base64::decode($token));
         $expected_length = $public_key_length + $shared_key_length + $time_length;
         if(static::$debug){
+            echo('[parse]' . PHP_EOL);
             var_dump([
                 'public_key_length' => $public_key_length,
                 'shared_key_length' => $shared_key_length,
                 'time_length' => $time_length,
                 'expected_length' => $expected_length,
+                'encrypted_time' => $encrypted_time,
                 'token' => $token,
             ]);
         }
+
         if(strlen($token) !== $expected_length)
             return [];
 
         $public_key = substr($token, 0, $public_key_length);
         $shared_key = substr($token, $public_key_length, $shared_key_length);
-        $time = substr($token, $public_key_length + $shared_key_length, $time_length);
+        $encrypted_time = substr($token, $public_key_length + $shared_key_length, $time_length);
 
         if(static::$debug){
-            echo('parse' . PHP_EOL);
-            echo('public_key' . PHP_EOL);
+            echo('[public_key]' . PHP_EOL);
             var_dump([
                 'substr' => [
                     $token,
@@ -727,7 +734,7 @@ class Key
                 ],
                 'result' => $public_key,
             ]);
-            echo('shared_key' . PHP_EOL);
+            echo('[shared_key]' . PHP_EOL);
             var_dump([
                 'substr' => [
                     $token,
@@ -736,21 +743,21 @@ class Key
                 ],
                 'result' => $shared_key,
             ]);
-            echo('time' . PHP_EOL);
+            echo('[encrypted_time]' . PHP_EOL);
             var_dump([
                 'substr' => [
                     $token,
                     $public_key_length + $shared_key_length,
                     $time_length,
                 ],
-                'result' => $time,
+                'result' => $encrypted_time,
             ]);
         }
 
         return [
             $public_key,
             $shared_key,
-            hexdec($time),
+            $encrypted_time,
         ];
     }
 
@@ -774,10 +781,26 @@ class Key
 
         if( ! $parsed) return false;
 
-        list($public_key, $shared_key, $time) = $parsed;
+        list($public_key, $shared_key, $encrypted_time) = $parsed;
         list($private_key, $payload) = $this->private_key();
         list($label, $stored_ip, $created) = $payload;
 
+        $decrypted_time = XoRx::decrypt(
+            $encrypted_time,
+            key: hash(
+                $this->HASH_ALGO,
+                $this->APP_KEY . $public_key,
+            ),
+            algo: $this->HASH_ALGO,
+        );
+        $time = hexdec($decrypted_time);
+        if(self::$debug){
+            var_dump([
+                'encrypted_time' => $encrypted_time,
+                'decrypted_time' => $decrypted_time,
+                'time' => $time,
+            ]);
+        }
         $this->created = $time;
         $hash = self::hmac(
             text: $private_key,
@@ -1081,7 +1104,17 @@ class ApiKeyMemory extends Key
 
         if( ! $parsed) return false;
 
-        list($public_key, $shared_key, $time) = $parsed;
+        list($public_key, $shared_key, $encrypted_time) = $parsed;
+
+        $decrypted_time = XoRx::decrypt(
+            $encrypted_time,
+            key: hash(
+                $HASH_ALGO,
+                $APP_KEY . $public_key,
+            ),
+            algo: $HASH_ALGO,
+        );
+        $time = hexdec($decrypted_time);
 
         $hashed_public_key = self::hmac(
             text: $public_key,
