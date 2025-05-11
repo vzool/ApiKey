@@ -311,7 +311,7 @@ class XoRx
         foreach([
             "Salam World!!!",
             str_repeat('x', 1000),
-            dechex(intval(date('YmdHis'))),
+            uniqid('', true),
         ] as $text){
             $key = strval(strlen($text));
             $encrypted = self::encrypt($text, $key);
@@ -373,7 +373,8 @@ class Key
      * Must be a supported algorithm by `hash_hmac_algos()`.
      * @param string $hashed_public_key An optional pre-computed hashed public key.
      * @param string $data Optional pre-existing data associated with the key.
-     * @param int $created Optional pre-existing creation datetime. If not provided.
+     * @param int $created Optional pre-existing creation timestamp. If not provided.
+     * @param int $ttl The time-to-live (in seconds) for this key. After this duration, the key is considered expired. A value of 0 indicates that the key never expires. Defaults to 0.
      * @throws Exception If `$APP_KEY` is empty or if the `$HASH_ALGO` is not supported.
      *
      * @since 0.0.1
@@ -387,6 +388,7 @@ class Key
         public string $hashed_public_key = '',
         public string $data = '',
         public int $created = 0,
+        public int $ttl = 0,
     ) {
         if( ! $APP_KEY) throw new Exception('APP_KEY is required.');
         if( ! in_array($HASH_ALGO, hash_hmac_algos()))
@@ -401,9 +403,9 @@ class Key
             APP_KEY: $this->APP_KEY,
             HASH_ALGO: $this->HASH_ALGO,
         );
-        $time = intval(date('YmdHis'));
+        $time = time();
         $this->created = $time;
-        $payload = json_encode([$label, $ip, $time]);
+        $payload = json_encode([$label, $ip, $time, $ttl]);
         $length = strlen($payload);
         $encrypted_payload = XoRx::encrypt($payload, $private_key);
         $terminator = hash(
@@ -487,13 +489,11 @@ class Key
      */
     public static function file(int $created, string $file = '') : string
     {
-        assert($created);
-        $time = strval($created);
-        assert(strlen($time) === 14);
+        $date = getdate($created);
         return implode(DIRECTORY_SEPARATOR, [
-            substr($time, 0, 4), // xxxx year
-            substr($time, 4, 2), // xx month
-            substr($time, 6, 2), // xx day
+            $date['year'],
+            $date['mon'],
+            $date['mday'],
         ])
         . DIRECTORY_SEPARATOR
         . $file
@@ -695,7 +695,7 @@ class Key
 
         $public_key_length = $KEY_LENGTH * 2;
         $shared_key_length = strlen(hash($HASH_ALGO, ''));
-        $random_time = dechex(intval(date('YmdHis')));
+        $random_time = dechex(time());
         $encrypted_time = XoRx::encrypt(
             plainText: $random_time,
             key: bin2hex(random_bytes(strlen($random_time))),
@@ -783,7 +783,7 @@ class Key
 
         list($public_key, $shared_key, $encrypted_time) = $parsed;
         list($private_key, $payload) = $this->private_key();
-        list($label, $stored_ip, $created) = $payload;
+        list($label, $stored_ip, $created, $ttl) = $payload;
 
         $decrypted_time = XoRx::decrypt(
             $encrypted_time,
@@ -807,25 +807,25 @@ class Key
             APP_KEY: $this->APP_KEY,
             HASH_ALGO: $this->HASH_ALGO,
         );
-        $valid = hash_equals(
-            $hash,
-            $shared_key,
+        $valid_token = hash_equals(
+            known_string: $hash,
+            user_string: $shared_key,
         );
 
+        $valid_ip = ( ! empty($ip) && ! empty($stored_ip)) ? $ip === $stored_ip : true;
+        $expired = ($ttl === 0) ? false : ($created + $ttl) < time();
+
         if(static::$debug){
-            echo('valid' . PHP_EOL);
+            echo('[valid]' . PHP_EOL);
             var_dump([
-                $hash,
-                $shared_key,
-                $valid,
+                'hash' => $hash,
+                'shared_key' => $shared_key,
+                'valid_token' => $valid_token,
+                'valid_ip' => $valid_ip,
+                'expired' => $expired,
             ]);
         }
-
-        if( ! empty($ip) && ! empty($stored_ip)){
-            return $valid && $ip === $stored_ip;
-        }
-
-        return $valid;
+        return $valid_token && $valid_ip && !$expired;
     }
 
     /**
@@ -840,6 +840,7 @@ class Key
         return [
             'label' => $this->label,
             'ip' => $this->ip,
+            'ttl' => $this->ttl,
             'data' => $this->data,
         ];
     }
@@ -885,7 +886,8 @@ class Key
      * @param string $APP_KEY The application-specific secret key used for hashing.
      * @param string $label An optional label for this key. Defaults to an empty string.
      * @param string $ip The IP address associated with this key. Defaults to an empty string.
-     * @param int $created Optional pre-existing creation datetime. If not provided.
+     * @param int $ttl The time-to-live (in seconds) for this key. After this duration, the key is considered expired. A value of 0 indicates that the key never expires. Defaults to 0.
+     * @param int $created Optional pre-existing creation timestamp. If not provided.
      * @param int $KEY_LENGTH The length of the original random keys in bytes. Defaults to API_KEY_DEFAULT_LENGTH.
      * @param string $HASH_ALGO The hashing algorithm used for HMAC. Defaults to API_KEY_DEFAULT_ALGO.
      * @return self A new Key object initialized with the provided data.
@@ -898,6 +900,7 @@ class Key
         string $APP_KEY,
         string $label = '',
         string $ip = '',
+        int $ttl = 0,
         int $created = 0,
         int $KEY_LENGTH = API_KEY_DEFAULT_LENGTH,
         string $HASH_ALGO = API_KEY_DEFAULT_ALGO,
@@ -906,6 +909,7 @@ class Key
         return new self(
             label: $label,
             ip: $ip,
+            ttl: $ttl,
             APP_KEY: $APP_KEY,
             KEY_LENGTH: $KEY_LENGTH,
             HASH_ALGO: $HASH_ALGO,
@@ -1017,7 +1021,7 @@ class ApiKeyMemory extends Key
      * Loads a key's data from the in-memory storage based on its hashed public key.
      *
      * @param string $hashed_public_key The hashed version of the public key to look up.
-     * @param int $created pre-existing creation datetime. If not provided.
+     * @param int $created pre-existing creation timestamp. If not provided.
      * @return array|null Returns an array containing the key's data if found, otherwise NULL.
      *
      * @since 0.0.1
@@ -1032,6 +1036,7 @@ class ApiKeyMemory extends Key
      *
      * @param string $label A descriptive label for the API key.
      * @param string $ip The IP address associated with this key (optional, defaults to '').
+     * @param int $ttl The time-to-live (in seconds) for this key. After this duration, the key is considered expired. A value of 0 indicates that the key never expires. Defaults to 0.
      * @param string $APP_KEY The application-specific secret key used for signing (defaults to the global APP_KEY constant).
      * @param int $KEY_LENGTH The desired length of the public and private keys (defaults to API_KEY_DEFAULT_LENGTH).
      * @param string $HASH_ALGO The hashing algorithm to use (defaults to API_KEY_DEFAULT_ALGO).
@@ -1042,6 +1047,7 @@ class ApiKeyMemory extends Key
     public static function make(
         string $label,
         string $ip = '',
+        int $ttl = 0,
         string $APP_KEY = APP_KEY,
         int $KEY_LENGTH = API_KEY_DEFAULT_LENGTH,
         string $HASH_ALGO = API_KEY_DEFAULT_ALGO,
@@ -1054,6 +1060,7 @@ class ApiKeyMemory extends Key
         $key = new self(
             label: $label . '@' . date('Y-m-d H:i:s'),
             ip: $ip,
+            ttl: $ttl,
             APP_KEY: $APP_KEY,
             KEY_LENGTH: $KEY_LENGTH,
             HASH_ALGO: $HASH_ALGO,
@@ -1139,6 +1146,7 @@ class ApiKeyMemory extends Key
         $key = self::create(
             label: $key_dict['label'],
             ip: $key_dict['ip'],
+            ttl: $key_dict['ttl'],
             hashed_public_key: $hashed_public_key,
             data: $data,
             APP_KEY: $APP_KEY,
@@ -1166,6 +1174,7 @@ class ApiKeyMemory extends Key
             label: 'x',
             APP_KEY: $APP_KEY,
             ip: '127.0.0.1',
+            ttl: 1,
         );
         assert( ! empty($key));
         $token = $key->token();
@@ -1175,6 +1184,9 @@ class ApiKeyMemory extends Key
         assert( ! self::check($token, APP_KEY: $APP_KEY, ip: '127.0.0.2'));
         assert( ! self::check('', APP_KEY: $APP_KEY));
         assert( ! self::check('123', APP_KEY: $APP_KEY));
+        sleep(2);
+        assert( ! self::check($token, APP_KEY: $APP_KEY, ip: '127.0.0.1'));
+        assert( ! self::check($token, APP_KEY: $APP_KEY, ip: '127.0.0.2'));
     }
 }
 
@@ -1246,7 +1258,7 @@ class ApiKeyFS extends ApiKeyMemory
      * and decodes it into an associative array.
      *
      * @param string $hashed_public_key The hashed public key used to determine the filename.
-     * @param int $created pre-existing creation datetime. If not provided.
+     * @param int $created pre-existing creation timestamp. If not provided.
      * @return array|null An associative array representing the API key data, or null if the file is empty or does not exist.
      *
      * @since 0.0.1
@@ -1284,6 +1296,7 @@ class ApiKeyFS extends ApiKeyMemory
         $key = self::make(
             label: 'x',
             ip: '127.0.0.1',
+            ttl: 1,
         );
         assert( ! empty($key));
         $token = $key->token();
@@ -1293,6 +1306,9 @@ class ApiKeyFS extends ApiKeyMemory
         assert( ! self::check($token, ip: '127.0.0.2'));
         assert( ! self::check(''));
         assert( ! self::check('123'));
+        sleep(2);
+        assert( ! self::check($token, ip: '127.0.0.1'));
+        assert( ! self::check($token, ip: '127.0.0.2'));
     }
 }
 
