@@ -1313,10 +1313,10 @@ class ApiKeyFS extends ApiKeyMemory
 }
 
 /**
- * class ApiKeyDatabase: Manages API keys, extending the in-memory storage with database persistence using PDO.
+ * class ApiKeyDatabase: Manages API keys, extending the in-memory storage with database persistence using `PDO`.
  *
  * This class provides functionality to create, save, and load API keys from a database.
- * It utilizes a SQLite database for storage and requires a PDO instance to be available.
+ * It can utilizes any `PDO` database for storage and requires a `PDO` instance to be available.
  * The database schema is automatically created if it doesn't exist.
  * 
  * @since 0.0.1
@@ -1468,12 +1468,6 @@ class ApiKeyDatabase extends ApiKeyMemory
             die("Failed to connect to the database: " . $e->getMessage());
         }
 
-        if( ! defined('APP_KEY')){
-            /**
-             * @ignore
-             */
-            define('APP_KEY', '484d3668-e681-4b7a-a751-468d7dfe9178');
-        }
         self::$debug = $debug;
         $key = self::make(
             label: 'x',
