@@ -22,6 +22,7 @@ The `Key` class is the core of the library. It handles the generation, hashing, 
 * **Customization:**
     * `label`:  A label for the API key.
     * `ip`: The IP address associated with the API key.
+    * `ttl`: The Time-to-live (in seconds) associated with the API key. (default: 0) means no expiration.
     * `APP_KEY`: A secret key used for hashing.  **This is required and must be kept secret.**
     * `KEY_LENGTH`: The length of the generated API key (default: 33 bytes).
     * `HASH_ALGO`: The hashing algorithm to use (default: `sha3-384`).  See `hash_hmac_algos()` for supported algorithms.
@@ -157,6 +158,138 @@ if ($isValid) {
 ?>
 ```
 
+#### 3. ApiKeyDatabase
+
+Stores API keys in a database using PDO (PHP Data Objects). This allows for API keys to be stored and retrieved across multiple application instances or requests. It leverages any PDO databases for storage and automatically creates the necessary table schema if it doesn't exist.
+
+**Features:**
+
+* **Database Persistence:** Stores API keys in a database.
+* **Automatic Schema Creation:** Creates the `api_keys` table if it's not already present.
+* **Integration with PDO:** Requires a PDO instance for database interaction.
+* **Extends `ApiKeyMemory`:** Inherits the core API key generation and validation logic.
+* **Supports Key Attributes:** Stores hashed public key, creation timestamp, optional IP address restriction, label, time-to-live (TTL), and associated data.
+
+**Usage:**
+
+1.  **Initialize the PDO instance:**
+
+    Before using any of the database functionalities, you need to set up a PDO connection. For a SQLite database in a file, you would do something like this:
+
+    ```php
+    try {
+        ApiKeyDatabase::$pdo = new PDO('sqlite:./api_keys.db');
+        ApiKeyDatabase::$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    } catch (PDOException $e) {
+        die("Failed to connect to the database: " . $e->getMessage());
+    }
+    ```
+
+    For an in-memory SQLite database (useful for testing or temporary storage):
+
+    ```php
+    try {
+        ApiKeyDatabase::$pdo = new PDO('sqlite::memory:');
+        ApiKeyDatabase::$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    } catch (PDOException $e) {
+        die("Failed to connect to the database: " . $e->getMessage());
+    }
+    ```
+
+2.  **Use the API key generation and validation methods:**
+
+    The `ApiKeyDatabase` class inherits the `make()` and `check()` methods from `ApiKeyMemory`. These methods will now automatically save new keys to the database and load existing keys from the database for validation.
+
+    ```php
+    <?php
+    define('API_KEY_LIB', time());
+    require_once 'ApiKey.php';
+
+    try {
+        ApiKeyDatabase::$pdo = new PDO('sqlite::memory:'); // or 'sqlite:./api_keys.db'
+        ApiKeyDatabase::$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    } catch (PDOException $e) {
+        die("Failed to connect to the database: " . $e->getMessage());
+    }
+
+    define('APP_KEY', 'your-secret-app-key'); // Define APP_KEY
+    
+    // Generate a new API key with optional parameters
+    $apiKey = ApiKeyDatabase::make(
+        label: 'My Application Key',
+        ip: '192.168.1.100',
+        ttl: 1, // Time-to-live in seconds
+    );
+
+    if ($apiKey) {
+        $token = $apiKey->token();
+        echo "Generated API Token: " . $token . "\n";
+
+        // Check if a token is valid
+        if (ApiKeyDatabase::check($token)) {
+            echo "Token is valid.\n";
+        } else {
+            echo "Token is invalid.\n";
+        }
+
+        // Check if a token is valid for a specific IP address
+        if (ApiKeyDatabase::check($token, ip: '192.168.1.100')) {
+            echo "Token is valid for IP 192.168.1.100.\n";
+        } else {
+            echo "Token is not valid for IP 192.168.1.100.\n";
+        }
+
+        // Check if a token is valid for a different IP address
+        if (ApiKeyDatabase::check($token, ip: '192.168.1.101')) {
+            echo "Token is valid for IP 192.168.1.101.\n";
+        } else {
+            echo "Token is not valid for IP 192.168.1.101.\n";
+        }
+
+        // Wait for the TTL to expire (if set)
+        sleep(2);
+
+        // Check if the token is still valid after TTL
+        if (ApiKeyDatabase::check($token)) {
+            echo "Token is still valid after TTL (this should not happen if TTL was set correctly).\n";
+        } else {
+            echo "Token is invalid after TTL.\n";
+        }
+    } else {
+        echo "Failed to generate API key.\n";
+    }
+    ?>
+    ```
+
+3.  **Database Table:**
+
+    The `ApiKeyDatabase` class will automatically create a table named `api_keys` (by default) with the following schema:
+
+    | Column             | Type             | Nullable | Unique | Primary Key | Auto Increment | Description                                     |
+    | ------------------ | ---------------- | -------- | ------ | ----------- | -------------- | ----------------------------------------------- |
+    | `id`               | INTEGER          | No       |        | Yes         | Yes            | Unique identifier for the API key record.       |
+    | `hashed_public_key`| VARCHAR(255)     | No       | Yes    | No          | No             | Unique, hashed representation of the public key. |
+    | `created`          | INTEGER          | No       |        | No          | No             | Unix timestamp of when the key was created.     |
+    | `ip`               | VARCHAR(255)     | Yes      |        | No          | No             | Optional IP address restriction.                |
+    | `label`            | VARCHAR(255)     | No       |        | No          | No             | Optional label for the API key.                 |
+    | `ttl`              | INTEGER          | No       |        | No          | No             | Optional time-to-live in seconds.              |
+    | `data`             | TEXT             | No       |        | No          | No             | Optional packed data associated with the key.|
+
+    You can change the table name by modifying the static `$tableName` property:
+
+    ```php
+    ApiKeyDatabase::$tableName = 'my_api_keys';
+    ```
+
+**Internal Methods (Not for Direct Use):**
+
+* `protected static ?PDO $pdo = NULL`: PDO instance for database interaction.
+* `protected static string $tableName = 'api_keys'`: The name of the database table.
+* `protected static function schema()`: Defines and creates the database schema if it doesn't exist.
+* `protected static function save(Key $key) : bool`: Saves a new API key to the database.
+* `protected static function load(string $hashed_public_key, int $created)`: Loads an API key from the database.
+
+
 ### Installation
 
 1. Ensure you have PHP 8.0+ or later.
@@ -187,7 +320,7 @@ php ApiKey.php test
 - **Testing**: The code includes `test()` methods. It is highly recommended to run these tests to ensure that the library is working correctly in your environment.
 
 ### Extending the Library
-You can extend the library to support other storage mechanisms by creating a new class that extends the Key class and overrides the `save()` and `load()` methods. For example, you could create an `ApiKeyDatabase` class to store keys in a database.
+You can extend the library to support other storage mechanisms by creating a new class that extends the `Key`, `ApiKeyMemory`, `ApiKeyFS` or `ApiKeyDatabase` class and overrides the `save()` and `load()` methods if applicable. For example, you could create an `ApiKeyMongoDB` class to store keys in a NoSQL database.
 
 ### Debugging
 
@@ -202,7 +335,7 @@ ApiKeyFS::$debug = true; # filesystem storage
 
 ## CLI Class
 
-This PHP class provides a command-line interface for generating and checking API keys.
+This PHP class provides a command-line interface for generating and checking API keys using `ApiKeyFS`.
 
 ## Commands
 

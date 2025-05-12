@@ -1324,18 +1324,17 @@ class ApiKeyFS extends ApiKeyMemory
 class ApiKeyDatabase extends ApiKeyMemory
 {/**
      * @var ?PDO PDO instance for database interaction.
-     * @internal This property is for internal use and should not be directly modified.
      * 
      * @since 0.0.1
      */
-    protected static ?PDO $pdo = NULL;
+    public static ?PDO $pdo = NULL;
 
     /**
      * @var string The name of the database table used to store API keys. Defaults to 'api_keys'.
      * 
      * @since 0.0.1
      */
-    protected static string $tableName = 'api_keys';
+    public static string $tableName = 'api_keys';
 
     /**
      * Defines the database schema for the API key table.
@@ -1359,9 +1358,9 @@ class ApiKeyDatabase extends ApiKeyMemory
             hashed_public_key VARCHAR(255) UNIQUE NOT NULL,
             created INTEGER NOT NULL,
             ip VARCHAR(255) NULL,
-            label VARCHAR(255) NULL,
-            ttl INTEGER NULL,
-            data TEXT NULL
+            label VARCHAR(255) NOT NULL,
+            ttl INTEGER NOT NULL,
+            data TEXT NOT NULL
         )";
         static::$pdo->exec($sql);
     }

@@ -24,3 +24,9 @@ jobs:
           php-version: '8.1'
 
       - run: bash docs.sh
+
+      - name: Upload static files as artifact
+        id: deployment
+        uses: actions/upload-pages-artifact@v3 # or specific "vX.X.X" version tag for this action
+        with:
+          path: docs/
