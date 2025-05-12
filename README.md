@@ -32,12 +32,36 @@ The `Key` class is the core of the library. It handles the generation, hashing, 
     * `create()`: Reconstructs a `Key` object from stored data (hashed public key and data).
 * **Testing:** Includes a `test()` method with comprehensive unit tests.
 
+### Installation
+
+```bash
+composer require vzool/api-key
+```
+
+```php
+<?php
+require_once 'vendor/autoload.php';
+?>
+```
+
+**Manual Installation**
+
+1. Ensure you have PHP 8.0+ or later.
+2. Copy the `ApiKey.php` file to your project.
+3. Include the file in your PHP script:
+```php
+<?php
+define('API_KEY_LIB', time());
+require_once 'ApiKey.php';
+?>
+```
+
 ### Usage
 
 ```php
 <?php
 
-define('API_KEY_LIB', time());
+define('API_KEY_LIB', time()); # not needed when installed by composer
 require_once 'ApiKey.php';
 
 // Generate a new API key.
@@ -289,18 +313,6 @@ Stores API keys in a database using PDO (PHP Data Objects). This allows for API 
 * `protected static function save(Key $key) : bool`: Saves a new API key to the database.
 * `protected static function load(string $hashed_public_key, int $created)`: Loads an API key from the database.
 
-
-### Installation
-
-1. Ensure you have PHP 8.0+ or later.
-2. Copy the `ApiKey.php` file to your project.
-3. Include the file in your PHP script:
-```php
-<?php
-define('API_KEY_LIB', time());
-require_once 'ApiKey.php';
-?>
-```
 
 ### Testing
 
