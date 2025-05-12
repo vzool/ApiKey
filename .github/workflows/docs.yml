@@ -27,7 +27,3 @@ jobs:
           php-version: '8.1'
 
       - run: bash docs.sh
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs/
