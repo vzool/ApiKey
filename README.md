@@ -1,9 +1,18 @@
 <img alt="logo" width="256px" src="images/logo_600.jpg" />
 
-## API Key Management Library (ApiKey)
+# API Key Management Library (ApiKey)
 
 <a href="https://github.com/vzool/ApiKey/actions/workflows/php.yml">
     <img src="https://github.com/vzool/ApiKey/actions/workflows/php.yml/badge.svg"/>
+</a>
+<a href="https://packagist.org/packages/vzool/api-key">
+    <img src="https://img.shields.io/packagist/dt/vzool/api-key" alt="Total Downloads">
+</a>
+<a href="https://packagist.org/packages/vzool/api-key">
+    <img src="https://img.shields.io/packagist/v/vzool/api-key" alt="Latest Stable Version">
+</a>
+<a href="https://packagist.org/packages/vzool/api-key">
+    <img src="https://img.shields.io/packagist/l/vzool/api-key" alt="License">
 </a>
 
 This library offers a simple and secure solution for API key management. It generates, stores, and validates keys in a way that prevents leakage and impersonation by avoiding a direct link between tokens and stored data. It supports storing keys in memory or in the file system.
