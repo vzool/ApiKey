@@ -1313,6 +1313,187 @@ class ApiKeyFS extends ApiKeyMemory
 }
 
 /**
+ * class ApiKeyDatabase: Manages API keys, extending the in-memory storage with database persistence using PDO.
+ *
+ * This class provides functionality to create, save, and load API keys from a database.
+ * It utilizes a SQLite database for storage and requires a PDO instance to be available.
+ * The database schema is automatically created if it doesn't exist.
+ * 
+ * @since 0.0.1
+ */
+class ApiKeyDatabase extends ApiKeyMemory
+{/**
+     * @var ?PDO PDO instance for database interaction.
+     * @internal This property is for internal use and should not be directly modified.
+     * 
+     * @since 0.0.1
+     */
+    protected static ?PDO $pdo = NULL;
+
+    /**
+     * @var string The name of the database table used to store API keys. Defaults to 'api_keys'.
+     * 
+     * @since 0.0.1
+     */
+    protected static string $tableName = 'api_keys';
+
+    /**
+     * Defines the database schema for the API key table.
+     *
+     * This method creates the `api_keys` table if it doesn't already exist.
+     * The table includes columns for the unique hashed public key, creation timestamp,
+     * optional IP address restriction, an optional label, an optional time-to-live (TTL),
+     * and an optional data field.
+     *
+     * @return void
+     * @throws AssertionError If the PDO instance is not initialized.
+     * @internal This method is for internal use and should not be called directly.
+     * 
+     * @since 0.0.1
+     */
+    protected static function schema()
+    {
+        assert(!empty(static::$pdo));
+        $sql = "CREATE TABLE IF NOT EXISTS " . static::$tableName . " (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            hashed_public_key VARCHAR(255) UNIQUE NOT NULL,
+            created INTEGER NOT NULL,
+            ip VARCHAR(255) NULL,
+            label VARCHAR(255) NULL,
+            ttl INTEGER NULL,
+            data TEXT NULL
+        )";
+        static::$pdo->exec($sql);
+    }
+
+    /**
+     * Saves a new API key to the database.
+     *
+     * This method inserts the provided API key details into the database table.
+     * It automatically calls the {@see schema()} method to ensure the table exists.
+     *
+     * @param Key $key The API key object to be saved.
+     * @return bool True on successful insertion, false otherwise.
+     * @throws AssertionError If the PDO instance is not initialized.
+     * @internal This method is for internal use and should not be called directly.
+     * 
+     * @since 0.0.1
+     */
+    protected static function save(Key $key) : bool
+    {
+        static::schema();
+        $stmt = static::$pdo->prepare("INSERT INTO " . static::$tableName . " (
+            hashed_public_key
+            , created
+            , ip
+            , label
+            , ttl
+            , data
+        ) VALUES (
+            :hashed_public_key
+            , :created
+            , :ip
+            , :label
+            , :ttl
+            , :data
+        )");
+
+        return $stmt->execute([
+            ':hashed_public_key' => $key->hashed_public_key,
+            ':created' => $key->created,
+            ':ip' => $key->ip,
+            ':label' => $key->label,
+            ':ttl' => $key->ttl,
+            ':data' => $key->data,
+        ]);
+    }
+
+     /**
+     * Loads an API key from the database based on its hashed public key.
+     *
+     * This method retrieves a single API key record from the database that matches
+     * the provided hashed public key. It automatically calls the {@see schema()}
+     * method to ensure the table exists.
+     *
+     * @param string $hashed_public_key The hashed public key of the API key to load.
+     * @param int $created The creation timestamp of the API key. While included in the
+     * original signature, this parameter is not currently used in the
+     * query and might be considered for removal or inclusion in future
+     * versions for more specific lookups.
+     * @return array|null An associative array containing the API key data if found,
+     * otherwise null.
+     * @throws AssertionError If the PDO instance is not initialized.
+     * @internal This method is for internal use and should not be called directly.
+     * 
+     * @since 0.0.1
+     */
+    protected static function load(string $hashed_public_key, int $created)
+    {
+        static::schema();
+        $stmt = static::$pdo->prepare(
+            " SELECT * FROM " . static::$tableName .
+            " WHERE hashed_public_key = :hashed_public_key",
+        );
+        $stmt->execute([
+            ':hashed_public_key' => $hashed_public_key,
+        ]);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: NULL;
+    }
+
+    /**
+     * Performs a basic test of the API key functionality.
+     *
+     * This method defines constants for the API key path and application key,
+     * enables debugging if requested, creates a new API key, and then performs
+     * basic assertions to check if the key generation and validation work as expected.
+     *
+     * @param bool $debug Optional. If true, enables debugging output. Defaults to false.
+     * @return void
+     *
+     * @since 0.0.1
+     */
+    public static function test(bool $debug = false)
+    {
+        if ($debug) {
+            error_reporting(E_ALL);
+            ini_set('display_errors', 1);
+            echo "Debugging enabled.\n";
+        }
+
+        // Initialize PDO connection for testing
+        try {
+            static::$pdo = new PDO('sqlite::memory:');
+            static::$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            if(static::$debug) echo "Connected to in-memory SQLite database.\n";
+        } catch (PDOException $e) {
+            die("Failed to connect to the database: " . $e->getMessage());
+        }
+
+        /**
+         * @ignore
+         */
+        if( ! defined('APP_KEY')) define('APP_KEY', '484d3668-e681-4b7a-a751-468d7dfe9178');
+        self::$debug = $debug;
+        $key = self::make(
+            label: 'x',
+            ip: '127.0.0.1',
+            ttl: 1,
+        );
+        assert( ! empty($key));
+        $token = $key->token();
+        assert( ! empty($token));
+        assert(self::check($token));
+        assert(self::check($token, ip: '127.0.0.1'));
+        assert( ! self::check($token, ip: '127.0.0.2'));
+        assert( ! self::check(''));
+        assert( ! self::check('123'));
+        sleep(2);
+        assert( ! self::check($token, ip: '127.0.0.1'));
+        assert( ! self::check($token, ip: '127.0.0.2'));
+    }
+}
+
+/**
  * Class CLI: Provides a command-line interface for generating and checking API keys.
  *
  * This class offers static methods to handle command-line arguments,
@@ -1580,6 +1761,7 @@ class CLI
         Key::test(debug: $verbose);
         ApiKeyMemory::test(debug: $verbose);
         ApiKeyFS::test(debug: $verbose);
+        ApiKeyDatabase::test(debug: $verbose);
         CLI::test(debug: $verbose);
         echo('ok' . PHP_EOL);
     }
