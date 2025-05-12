@@ -5,9 +5,6 @@ on:
   push:
     branches:
       - main
-    # Alternative: only build for tags.
-    # tags:
-    #   - '*'
 
 # security: restrict permissions for CI jobs.
 permissions:
@@ -18,9 +15,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Important: Fetch the full history
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
