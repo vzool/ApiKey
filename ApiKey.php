@@ -1469,11 +1469,12 @@ class ApiKeyDatabase extends ApiKeyMemory
             die("Failed to connect to the database: " . $e->getMessage());
         }
 
-        if( ! defined('APP_KEY'))
+        if( ! defined('APP_KEY')){
             /**
              * @ignore
              */
             define('APP_KEY', '484d3668-e681-4b7a-a751-468d7dfe9178');
+        }
         self::$debug = $debug;
         $key = self::make(
             label: 'x',
