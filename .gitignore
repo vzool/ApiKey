@@ -3,3 +3,4 @@ tmp
 /docs
 *.phar
 app
+vendor
