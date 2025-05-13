@@ -1,6 +1,6 @@
 #!/bin/bash
 
-rm -rf .phpdoc ./docs
+rm -rf .phpdoc/cache ./docs
 
 if [ ! -f phpDocumentor.phar ]; then
   echo "phpDocumentor.phar not found. Downloading..."
@@ -15,4 +15,4 @@ fi
 
 echo "phpDocumentor.phar exists."
 
-php phpDocumentor.phar -v --validate --sourcecode --title="ApiKey" -f ApiKey.php -t ./docs
+php phpDocumentor.phar -v --validate --sourcecode --template=.phpdoc/template --title="ApiKey" -f ApiKey.php -t ./docs

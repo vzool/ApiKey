@@ -1,5 +1,5 @@
 tmp
-.phpdoc
+.phpdoc/cache
 /docs
 *.phar
 app
