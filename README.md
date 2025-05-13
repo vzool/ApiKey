@@ -320,8 +320,8 @@ Stores API keys in a database using PDO (PHP Data Objects). This allows for API 
 
 **Internal Methods (Not for Direct Use):**
 
-* `protected static ?PDO $pdo = NULL`: PDO instance for database interaction.
-* `protected static string $tableName = 'api_keys'`: The name of the database table.
+* `public static ?PDO $pdo = NULL`: PDO instance for database interaction.
+* `public static string $tableName = 'api_keys'`: The name of the database table.
 * `protected static function schema()`: Defines and creates the database schema if it doesn't exist.
 * `protected static function save(Key $key) : bool`: Saves a new API key to the database.
 * `protected static function load(string $hashed_public_key, int $created)`: Loads an API key from the database.
@@ -377,11 +377,12 @@ This PHP class provides a command-line interface for generating and checking API
 | `--app-key=<app-key>`      | Application key.                                        |          Yes           |          Yes          |       -       |
 | `--path=<api-keys-path>`   | API Keys storage path.                                  |          Yes           |          Yes          |       -       |
 | `--label=<label>`          | Label for the API key.                                  |          Yes           |           No          |       -       |
-| `--ip=<ip>`                | IP address of the client.                               |           No           |           No          |      ''       |
+| `--ip=<ip>`                | IP address of the client.                               |           Optional           |           Optional          |      ''       |
+| `--ttl=<ttl>`                | Expiration time (in seconds), 0 means no expiration.                        |           Optional           |           No          |      0       |
 | `--token=<token>`          | The API key token to check.                             |           No           |          Yes          |       -       |
-| `--key-length=<key-length>`| The size of key building block.                         |           No           |           No          |       33      |
-| `--algo=<algo>`            | The algorithm used for HMAC hashing. See `hash_hmac_algos()` for supported algorithms. |           No           |           No          |   `sha3-384`  |
-| `--verbose`                | Print verbose messages.   
+| `--key-length=<key-length>`| The size of key building block.                         |           Optional           |           Optional          |       33      |
+| `--algo=<algo>`            | The algorithm used for HMAC hashing. See `hash_hmac_algos()` for supported algorithms. |           Optional           |           Optional          |   `sha3-384`  |
+| `--verbose`                | Print verbose messages.   | Optional | Optional | - |
 
 ### Examples
 
