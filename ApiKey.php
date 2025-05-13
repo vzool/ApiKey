@@ -1556,13 +1556,14 @@ class CLI
         echo("  --path=<api-keys-path>      API Keys storage path (always required).\n");
         echo("  --label=<label>             Label for the API key (required for generate).\n");
         echo("  --ip=<ip>                   IP address of the client (optional for generate).\n");
+        echo("  --ttl=<ttl>                 The time-to-live default 0 means no expiration (optional for generate).\n");
         echo("  --token=<token>             The API key token to check (required for check).\n");
         echo("  --key-length=<key-length>   The size of key building block (optional: default API_KEY_DEFAULT_LENGTH).\n");
         echo("  --algo=<algo>               The algorithm used for hmac hashing (optional: default sha3-384). See `hash_hmac_algos()` for supported algorithms.\n");
         echo("  --verbose                   Print verbose messages (optional: false).\n");
         echo("\n");
         echo("Example:\n");
-        echo("  php {$argv[0]} generate --app-key=abc-def-ghi --path=tmp --label=my-app --ip=192.168.1.100\n");
+        echo("  php {$argv[0]} generate --app-key=abc-def-ghi --path=tmp --label=my-app --ip=192.168.1.100 --ttl=3\n");
         echo("  php {$argv[0]} check --app-key=abc-def-ghi --path=tmp --ip=192.168.1.100 --token=the-api-key-token-here\n");
         echo("  php {$argv[0]} check --app-key=abc-def-ghi --path=tmp --token=the-api-key-token-here\n");
         echo("  php {$argv[0]} help\n");
@@ -1611,7 +1612,7 @@ class CLI
      * This function retrieves the required options (`--app-key`, `--path`, `--label`)
      * from the `$options` array. It then defines the `API_KEY_PATH` and `APP_KEY`
      * constants and calls the `ApiKeyFS::make()` method to generate and store
-     * the new API key. Optional parameters like `--ip`, `--key-length`, and
+     * the new API key. Optional parameters like `--ip`, `--ttl`, `--key-length`, and
      * `--algo` are also handled. If the `--verbose` option is enabled, additional
      * information about the generated key and its storage location is printed.
      * In case of any error during the key generation process, an error message
@@ -1645,10 +1646,12 @@ class CLI
         $path = self::$options['path'];
         $label = self::$options['label'];
         $ip = isset(self::$options['ip']) ? self::$options['ip'] : '';
+        $ttl = isset(self::$options['ttl']) ? intval(self::$options['ttl']) : 0;
         $key_length = isset(self::$options['key-length']) ? self::$options['key-length'] : API_KEY_DEFAULT_LENGTH;
         $algo = isset(self::$options['algo']) ? self::$options['algo'] : API_KEY_DEFAULT_ALGO;
 
         $key_length = is_int($key_length) && $key_length >= 1 ? $key_length : API_KEY_DEFAULT_LENGTH;
+        $ttl = is_int($ttl) && $ttl >= 1 ? $ttl : 0;
 
         try {
             /**
@@ -1662,6 +1665,7 @@ class CLI
             $key = ApiKeyFS::make(
                 label: $label,
                 ip: $ip,
+                ttl: $ttl,
                 KEY_LENGTH: $key_length,
                 HASH_ALGO: $algo,
             );
@@ -1839,7 +1843,12 @@ class CLI
             $return_var = 0;
             if($debug) echo("Command: $command\n");
             exec($command, $output, $return_var);
-            if($debug) var_dump(['return_var' => $return_var, 'output' => $output]);
+            if($debug) var_dump([
+                'return_var' => $return_var,
+                'message' => $message,
+                'output[0]' => $output[0],
+                'output' => $output,
+            ]);
             assert($return_var === 1);
             assert($output);
             assert(count($output) > 1);
@@ -1849,7 +1858,7 @@ class CLI
         // good generate
         $output = [];
         $return_var = 0;
-        $command = 'php ApiKey.php generate --app-key=abc-def-ghi --path=tmp --label=my-app --ip=192.168.1.100';
+        $command = 'php ApiKey.php generate --app-key=abc-def-ghi --path=tmp --label=my-app --ip=192.168.1.100 --ttl=1';
         if($debug) echo("Command: $command\n");
         exec($command, $output, $return_var);
         if($debug) var_dump(['return_var' => $return_var, 'output' => $output]);
@@ -1896,7 +1905,9 @@ class CLI
         }
 
         // check invalid
+        sleep(2);
         foreach([
+            'php ApiKey.php check --app-key=abc-def-ghi --path=tmp --ip=192.168.1.100 --token=' . $token,
             'php ApiKey.php check --app-key=abc-def-ghi --path=tmp --ip=192.168.1.101 --token=' . $token,
             'php ApiKey.php check --app-key=abc-def-ghi --path=tmp --token=xyz',
         ] as $command){

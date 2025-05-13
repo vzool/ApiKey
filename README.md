@@ -15,7 +15,7 @@
     <img src="https://img.shields.io/packagist/l/vzool/api-key" alt="License">
 </a>
 
-This library offers a simple and secure solution for API key management. It generates, stores, and validates keys in a way that prevents leakage and impersonation by avoiding a direct link between tokens and stored data. It supports storing keys in memory or in the file system.
+This library offers a simple and secure solution for API key management. It generates, stores, and validates keys in a way that prevents leakage and impersonation by avoiding a direct link between tokens and stored data. It supports storing keys in memory, in the file system or in `PDO` Databases.
 
 ## Core Class: `Key`
 
