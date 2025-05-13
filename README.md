@@ -72,6 +72,7 @@ require_once 'ApiKey.php';
 
 define('API_KEY_LIB', time()); # not needed when installed by composer
 require_once 'ApiKey.php';
+use vzool\ApiKey\Key;
 
 // Generate a new API key.
 $key = new Key(
@@ -135,6 +136,7 @@ Stores API keys in a static memory array. This is suitable for short-lived proce
 <?php
 define('API_KEY_LIB', time());
 require_once 'ApiKey.php';
+use vzool\ApiKey\ApiKeyMemory;
 
 define('APP_KEY', 'your-secret-app-key'); // Define APP_KEY
 
@@ -172,6 +174,7 @@ Stores API keys in the file system. This provides persistence across requests an
 <?php
 define('API_KEY_LIB', time());
 require_once 'ApiKey.php';
+use vzool\ApiKey\ApiKeyFS;
 
 define('API_KEY_PATH', 'tmp/path/to/your/storage'); // Define where to store the keys.  Make sure this directory is writable.
 define('APP_KEY', 'your-secret-app-key');  //Define APP_KEY
@@ -237,6 +240,7 @@ Stores API keys in a database using PDO (PHP Data Objects). This allows for API 
     <?php
     define('API_KEY_LIB', time());
     require_once 'ApiKey.php';
+    use vzool\ApiKey\ApiKeyDatabase;
 
     try {
         ApiKeyDatabase::$pdo = new PDO('sqlite::memory:'); // or 'sqlite:./api_keys.db'
@@ -345,13 +349,14 @@ You can extend the library to support other storage mechanisms by creating a new
 
 ### Debugging
 
-The `Key` class, and the `ApiKeyMemory` and `ApiKeyFS` classes have a static `$debug` property. When set to `true`, the classes will output additional information to help with debugging.
+The `Key` class, and the `ApiKeyMemory`, and the `ApiKeyFS` and `ApiKeyDatabase` classes have a static `$debug` property. When set to `true`, the classes will output additional information to help with debugging.
 
 ```php
 <?php
 Key::$debug = true; # core
 ApiKeyMemory::$debug = true; # memory storage
 ApiKeyFS::$debug = true; # filesystem storage
+ApiKeyDatabase::$debug = true; # database storage
 ```
 
 ## CLI Class

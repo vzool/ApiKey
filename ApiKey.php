@@ -1,6 +1,8 @@
 #!/usr/bin/env php
 <?php declare(strict_types=1);
 
+namespace vzool\ApiKey;
+
 /**
  * @license MIT
  * @author Abdelaziz Elarashed Elshaikh Mohamed
@@ -390,9 +392,9 @@ class Key
         public int $created = 0,
         public int $ttl = 0,
     ) {
-        if( ! $APP_KEY) throw new Exception('APP_KEY is required.');
+        if( ! $APP_KEY) throw new \Exception('APP_KEY is required.');
         if( ! in_array($HASH_ALGO, hash_hmac_algos()))
-            throw new Exception('Unsupported hash algorithm(' . $HASH_ALGO . ')');
+            throw new \Exception('Unsupported hash algorithm(' . $HASH_ALGO . ')');
 
         if($hashed_public_key || $data || $created) return;
 
@@ -691,7 +693,7 @@ class Key
     ) : array
     {
         if( ! in_array($HASH_ALGO, hash_hmac_algos()))
-            throw new Exception('Unsupported hash algorithm(' . $HASH_ALGO . ')');
+            throw new \Exception('Unsupported hash algorithm(' . $HASH_ALGO . ')');
 
         $public_key_length = $KEY_LENGTH * 2;
         $shared_key_length = strlen(hash($HASH_ALGO, ''));
@@ -932,7 +934,7 @@ class Key
        $failed = false;
        try{
             new self('x', '127.0.0.1', '');
-        }catch(Exception $ex) { $failed = true; }
+        }catch(\Exception $ex) { $failed = true; }
         assert($failed);
         $APP_KEY = '1bd4145f-30cd-46f2-aa7e-598039a34850';
         for($KEY_LENGTH = 1; $KEY_LENGTH < 34; $KEY_LENGTH++){
@@ -969,7 +971,7 @@ class Key
                 $failed = false;
                 try{
                     //$key2->token();
-                }catch(Exception $ex) { $failed = true; }
+                }catch(\Exception $ex) { $failed = true; }
                 //assert($failed);
                 assert($key2->valid($token));
                 assert($key2->valid($token, '127.0.0.1'));
@@ -1327,7 +1329,7 @@ class ApiKeyDatabase extends ApiKeyMemory
      * 
      * @since 0.0.1
      */
-    public static ?PDO $pdo = NULL;
+    public static ?\PDO $pdo = NULL;
 
     /**
      * @var string The name of the database table used to store API keys. Defaults to 'api_keys'.
@@ -1436,7 +1438,7 @@ class ApiKeyDatabase extends ApiKeyMemory
         $stmt->execute([
             ':hashed_public_key' => $hashed_public_key,
         ]);
-        return $stmt->fetch(PDO::FETCH_ASSOC) ?: NULL;
+        return $stmt->fetch(\PDO::FETCH_ASSOC) ?: NULL;
     }
 
     /**
@@ -1461,10 +1463,10 @@ class ApiKeyDatabase extends ApiKeyMemory
 
         // Initialize PDO connection for testing
         try {
-            static::$pdo = new PDO('sqlite::memory:');
-            static::$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            static::$pdo = new \PDO('sqlite::memory:');
+            static::$pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
             if(static::$debug) echo "Connected to in-memory SQLite database.\n";
-        } catch (PDOException $e) {
+        } catch (\PDOException $e) {
             die("Failed to connect to the database: " . $e->getMessage());
         }
 
@@ -1675,7 +1677,7 @@ class CLI
             echo($token);
             if($verbose) echo("\n");
             if($verbose) echo("Key stored in: " . API_KEY_PATH . "\n");
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             echo("Error: " . $e->getMessage() . "\n");
             exit(1);
         }
@@ -1740,7 +1742,7 @@ class CLI
                 HASH_ALGO: $algo,
             );
             echo("API Key Token is " . ($isValid ? "valid" : "invalid") . ".\n");
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             echo("Error: " . $e->getMessage() . "\n");
             exit(1);
         }
