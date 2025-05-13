@@ -1193,6 +1193,100 @@ class ApiKeyMemory extends Key
 }
 
 /**
+ * Class ApiKeyAPCu: Extends ApiKeyMemory to provide API key storage and retrieval using the APCu cache.
+ *
+ * APCu (Alternative PHP Cache User Cache) is an in-memory key-value store for PHP.
+ * This class leverages APCu to efficiently store and retrieve API key data, offering
+ * potentially faster performance compared to storing keys solely in memory within
+ * a single request lifecycle.
+ *
+ * @since 0.0.1
+ */
+class ApiKeyAPCu extends ApiKeyMemory
+{
+    /**
+     * Saves a Key object to the APCu cache.
+     *
+     * The key for storage in APCu is the hashed public key of the API key.
+     * The value stored is an associative array representing the key's attributes.
+     *
+     * @param Key $key The Key object to save.
+     * @return bool True on successful storage, false otherwise.
+     */
+    protected static function save(Key $key) : bool
+    {
+        return \apcu_add(
+            $key->hashed_public_key,
+            $key->dict(),
+        );
+    }
+
+    /**
+     * Loads API key data from the APCu cache based on the hashed public key and creation timestamp.
+     *
+     * This method checks if a key exists in the APCu cache using the provided
+     * hashed public key. If it exists, the associated data is fetched and returned.
+     * If the key does not exist, NULL is returned. The `$created` timestamp is included
+     * in the method signature for potential future use or consistency with other
+     * storage mechanisms, although it is not directly used in this APCu implementation.
+     *
+     * @param string $hashed_public_key The hashed public key of the API key to load.
+     * @param int $created The creation timestamp of the API key (not directly used in this implementation).
+     * @return array|null An associative array representing the API key data if found, NULL otherwise.
+     */
+    protected static function load(string $hashed_public_key, int $created)
+    {
+        return \apcu_exists($hashed_public_key) ? \apcu_fetch($hashed_public_key) : NULL;
+    }
+
+    /**
+     * Performs a basic test of the API key functionality using APCu for storage.
+     *
+     * This method is designed to verify that the API key generation, storage (via APCu),
+     * and validation mechanisms are working correctly. It defines a constant for the
+     * application key (which would typically be defined elsewhere in a real application),
+     * optionally enables debugging output, creates a new API key with specific parameters,
+     * and then performs a series of assertions to validate different aspects of the key.
+     * These assertions include checking if a key and its token are generated, if the
+     * key is valid with the correct token and IP address, if it's invalid with a wrong
+     * IP address or an empty/invalid token, and if the time-to-live (TTL) mechanism
+     * is working as expected.
+     *
+     * **Note:** This test relies on the APCu extension being enabled and configured
+     * in your PHP environment.
+     *
+     * @param bool $debug Optional. If true, enables debugging output using `self::debug()`. Defaults to false.
+     * @return void
+     *
+     * @since 0.0.1
+     */
+    public static function test(bool $debug = false)
+    {
+        /**
+         * @ignore
+         */
+        define('APP_KEY', '55CD1C6B-4104-4C89-AE9F-5E867A75DB67');
+        self::$debug = $debug;
+        $key = self::make(
+            label: 'x',
+            ip: '127.0.0.1',
+            ttl: 1,
+        );
+        assert( ! empty($key));
+        $token = $key->token();
+        assert( ! empty($token));
+        assert(self::check($token));
+        assert(self::check($token, ip: '127.0.0.1'));
+        assert( ! self::check($token, ip: '127.0.0.2'));
+        assert( ! self::check(''));
+        assert( ! self::check('123'));
+        sleep(2);
+        assert( ! self::check($token, ip: '127.0.0.1'));
+        assert( ! self::check($token, ip: '127.0.0.2'));
+    }
+}
+
+/**
  * Class ApiKeyFS: Manages API keys, extending the in-memory storage with file system persistence.
  *
  * This class provides methods for saving, loading, and managing API keys,
@@ -1290,10 +1384,12 @@ class ApiKeyFS extends ApiKeyMemory
          * @ignore
          */
         define('API_KEY_PATH', 'tmp');
-        /**
-         * @ignore
-         */
-        define('APP_KEY', '94473B99-23CB-4A4D-A315-C0F9B8C9B39A');
+        if( ! defined('APP_KEY')){
+            /**
+             * @ignore
+             */
+            define('APP_KEY', '94473B99-23CB-4A4D-A315-C0F9B8C9B39A');
+        }
         self::$debug = $debug;
         $key = self::make(
             label: 'x',
@@ -1767,6 +1863,7 @@ class CLI
         XoRx::test(debug: $verbose);
         Key::test(debug: $verbose);
         ApiKeyMemory::test(debug: $verbose);
+        ApiKeyAPCu::test(debug: $verbose);
         ApiKeyFS::test(debug: $verbose);
         ApiKeyDatabase::test(debug: $verbose);
         CLI::test(debug: $verbose);
