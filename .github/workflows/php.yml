@@ -2,15 +2,9 @@
 name: Testing PHP
 on: [push, pull_request]
 jobs:
-  ApiKey-ClosedOS:
+  ApiKey-ClosedOSes:
     name: ApiKey (PHP ${{ matrix.php-versions }} on ${{ matrix.operating-system }})
     runs-on: ${{ matrix.operating-system }}
-    services:
-      redis:
-        image: redis
-        ports:
-          - 6379/tcp
-        options: --health-cmd="redis-cli ping" --health-interval=10s --health-timeout=5s --health-retries=3
     strategy:
       fail-fast: false
       matrix:
@@ -34,13 +28,13 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php-versions }}
-          extensions: pdo_sqlite, redis
+          extensions: pdo_sqlite
           coverage: xdebug
 
       - name: Test
         run: php --define apc.enable_cli=1 ApiKey.php test
 
-  ApiKey-OpenOS:
+  ApiKey-OpenOSes:
     name: ApiKey (PHP ${{ matrix.php-versions }} on ${{ matrix.operating-system }})
     runs-on: ${{ matrix.operating-system }}
     services:
