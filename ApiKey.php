@@ -1236,7 +1236,7 @@ class ApiKeyAPCu extends ApiKeyMemory
      */
     protected static function load(string $hashed_public_key, int $created)
     {
-        return \apcu_exists($hashed_public_key) ? \apcu_fetch($hashed_public_key) : NULL;
+        return \apcu_fetch($hashed_public_key) ?: NULL;
     }
 
     /**
@@ -1863,7 +1863,8 @@ class CLI
         XoRx::test(debug: $verbose);
         Key::test(debug: $verbose);
         ApiKeyMemory::test(debug: $verbose);
-        ApiKeyAPCu::test(debug: $verbose);
+        if(function_exists('apcu_add') && function_exists('apcu_fetch'))
+            ApiKeyAPCu::test(debug: $verbose);
         ApiKeyFS::test(debug: $verbose);
         ApiKeyDatabase::test(debug: $verbose);
         CLI::test(debug: $verbose);

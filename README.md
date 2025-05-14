@@ -155,7 +155,44 @@ if ($isValid) {
 ?>
 ```
 
-#### 2. ApiKeyFS
+#### 2. ApiKeyAPCu (require APCu extension enabled)
+
+Stores API keys using the APCu (Alternative PHP Cache User Cache) extension.  APCu is an in-memory key-value store for PHP, offering improved performance by caching API key data.
+
+##### Usage
+
+```php
+<?php
+define('API_KEY_LIB', time());
+require_once 'ApiKey.php';
+use vzool\ApiKey\ApiKeyAPCu;
+
+// Create a new API key
+$key = ApiKeyAPCu::make(
+    label: 'My API Key',
+    ip: '192.168.1.100',
+    ttl: 3600 // 1 hour
+);
+
+if ($key) {
+    echo "API Key created successfully!\n";
+    echo "Public Key: " . $key->public_key . "\n";
+    echo "Token: " . $key->token() . "\n";
+
+    // Later, check the key (assuming you have the token)
+    $token = $key->token();
+    if (ApiKeyAPCu::check($token, '192.168.1.100')) {
+        echo "API Key is valid.\n";
+    } else {
+        echo "API Key is invalid or expired.\n";
+    }
+} else {
+    echo "Failed to create API Key.\n";
+}
+?>
+```
+
+#### 3. ApiKeyFS
 
 Stores API keys in the file system. This provides persistence across requests and is suitable for production use. Keys are stored in individual files, with the hashed public key used as the filename.
 
@@ -194,7 +231,7 @@ if ($isValid) {
 ?>
 ```
 
-#### 3. ApiKeyDatabase
+#### 4. ApiKeyDatabase
 
 Stores API keys in a database using PDO (PHP Data Objects). This allows for API keys to be stored and retrieved across multiple application instances or requests. It leverages any PDO databases for storage and automatically creates the necessary table schema if it doesn't exist.
 
