@@ -192,7 +192,48 @@ if ($key) {
 ?>
 ```
 
-#### 3. ApiKeyFS
+#### 3. ApiKeyMemcached (server only available on Unix like OSes)
+
+Stores API keys by leveraging Memcached. It inherits the core API key generation and validation logic from the `ApiKeyMemory` class and overrides the storage functionalities to interact with a Memcached instance. This approach offers potential performance benefits, especially in distributed environments or for API keys with longer lifespans, compared to storing keys solely in memory.
+
+##### Usage
+
+```php
+<?php
+define('API_KEY_LIB', time());
+require_once 'ApiKey.php';
+use vzool\ApiKey\ApiKeyMemcached;
+
+// Initialize the Memcached connection
+ApiKeyMemcached::$memcached = new \Memcached('my_pool'); // You can use a persistent ID
+ApiKeyMemcached::$memcached->addServer('127.0.0.1', 11211);
+
+// Create a new API key
+$key = ApiKeyMemcached::make(
+    label: 'My API Key',
+    ip: '192.168.1.100',
+    ttl: 3600 // 1 hour
+);
+
+if ($key) {
+    echo "API Key created successfully!\n";
+    echo "Public Key: " . $key->public_key . "\n";
+    echo "Token: " . $key->token() . "\n";
+
+    // Later, check the key (assuming you have the token)
+    $token = $key->token();
+    if (ApiKeyMemcached::check($token, '192.168.1.100')) {
+        echo "API Key is valid.\n";
+    } else {
+        echo "API Key is invalid or expired.\n";
+    }
+} else {
+    echo "Failed to create API Key.\n";
+}
+?>
+```
+
+#### 4. ApiKeyFS
 
 Stores API keys in the file system. This provides persistence across requests and is suitable for production use. Keys are stored in individual files, with the hashed public key used as the filename.
 
@@ -231,7 +272,7 @@ if ($isValid) {
 ?>
 ```
 
-#### 4. ApiKeyDatabase
+#### 5. ApiKeyDatabase
 
 Stores API keys in a database using PDO (PHP Data Objects). This allows for API keys to be stored and retrieved across multiple application instances or requests. It leverages any PDO databases for storage and automatically creates the necessary table schema if it doesn't exist.
 

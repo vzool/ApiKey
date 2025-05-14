@@ -129,6 +129,7 @@ class base64
      */
     public static function test(bool $debug = false)
     {
+        if( ! defined('API_KEY_LIB')) echo('[' . __CLASS__ . ']' . PHP_EOL);
         $testStrings = [
             '',
             'A',
@@ -308,6 +309,7 @@ class XoRx
      */
     public static function test(bool $debug = false)
     {
+        if( ! defined('API_KEY_LIB')) echo('[' . __CLASS__ . ']' . PHP_EOL);
         // self::$debug = $debug;
 
         foreach([
@@ -931,7 +933,8 @@ class Key
      */
     public static function test(bool $debug = false)
     {
-       $failed = false;
+        if( ! defined('API_KEY_LIB')) echo('[' . __CLASS__ . ']' . PHP_EOL);
+        $failed = false;
        try{
             new self('x', '127.0.0.1', '');
         }catch(\Exception $ex) { $failed = true; }
@@ -1170,6 +1173,7 @@ class ApiKeyMemory extends Key
      */
     public static function test(bool $debug = false)
     {
+        if( ! defined('API_KEY_LIB')) echo('[' . __CLASS__ . ']' . PHP_EOL);
         $APP_KEY = '65162b0b-784d-4e15-88b4-459d5caadf3f';
         self::$debug = $debug;
         $key = self::make(
@@ -1262,6 +1266,7 @@ class ApiKeyAPCu extends ApiKeyMemory
      */
     public static function test(bool $debug = false)
     {
+        if( ! defined('API_KEY_LIB')) echo('[' . __CLASS__ . ']' . PHP_EOL);
         /**
          * @ignore
          */
@@ -1366,6 +1371,7 @@ class ApiKeyMemcached extends ApiKeyMemory
      */
     public static function test(bool $debug = false)
     {
+        if( ! defined('API_KEY_LIB')) echo('[' . __CLASS__ . ']' . PHP_EOL);
         if( ! defined('APP_KEY')){
             /**
              * @ignore
@@ -1490,6 +1496,7 @@ class ApiKeyFS extends ApiKeyMemory
      */
     public static function test(bool $debug = false)
     {
+        if( ! defined('API_KEY_LIB')) echo('[' . __CLASS__ . ']' . PHP_EOL);
         /**
          * @ignore
          */
@@ -1661,6 +1668,7 @@ class ApiKeyDatabase extends ApiKeyMemory
      */
     public static function test(bool $debug = false)
     {
+        if( ! defined('API_KEY_LIB')) echo('[' . __CLASS__ . ']' . PHP_EOL);
         if ($debug) {
             error_reporting(E_ALL);
             ini_set('display_errors', 1);
@@ -2043,6 +2051,7 @@ class CLI
      */
     public static function test(bool $debug = false)
     {
+        if( ! defined('API_KEY_LIB')) echo('[' . __CLASS__ . ']' . PHP_EOL);
         // bad generate
         foreach([
             'php ApiKey.php generate' => "Error: The --app-key option is required for the generate command.",
