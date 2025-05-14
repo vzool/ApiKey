@@ -2,14 +2,13 @@
 name: Testing PHP
 on: [push, pull_request]
 jobs:
-  ApiKey:
+  ApiKey-ClosedOS:
     name: ApiKey (PHP ${{ matrix.php-versions }} on ${{ matrix.operating-system }})
     runs-on: ${{ matrix.operating-system }}
     strategy:
       fail-fast: false
       matrix:
         operating-system: [
-            ubuntu-latest,
             windows-latest,
             macos-latest,
         ]
@@ -29,7 +28,37 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php-versions }}
-          extensions: mbstring, dom, fileinfo, memcached
+          coverage: xdebug
+
+      - name: Test
+        run: php --define apc.enable_cli=1 ApiKey.php test
+
+  ApiKey-OpenOS:
+    name: ApiKey (PHP ${{ matrix.php-versions }} on ${{ matrix.operating-system }})
+    runs-on: ${{ matrix.operating-system }}
+    strategy:
+      fail-fast: false
+      matrix:
+        operating-system: [
+            ubuntu-latest,
+        ]
+        php-versions: [
+            '8.0',
+            '8.1',
+            '8.2',
+            '8.3',
+            '8.4',
+        ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Docs: https://github.com/shivammathur/setup-php
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-versions }}
+          extensions: memcached
           coverage: xdebug
 
       - name: Setup Memcached
