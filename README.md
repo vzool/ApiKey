@@ -233,7 +233,50 @@ if ($key) {
 ?>
 ```
 
-#### 4. ApiKeyFS
+#### 4. ApiKeyRedis
+
+Stores API keys by leveraging a Redis server. Unlike `ApiKeyMemory`, which stores keys in memory (and thus loses them between requests), `ApiKeyRedis` ensures that API key data persists. This offers significant advantages for applications requiring API key management across multiple requests and can contribute to better scalability in distributed environments.
+
+##### Usage
+
+```php
+<?php
+define('API_KEY_LIB', time());
+require_once 'ApiKey.php';
+use vzool\ApiKey\ApiKeyRedis;
+
+// Initialize the Redis connection
+ApiKeyRedis::$redis = new \Redis([
+    'host' => '127.0.0.1',
+    'port' => 6379,
+]);
+
+// Create a new API key
+$key = ApiKeyRedis::make(
+    label: 'My API Key',
+    ip: '192.168.1.100',
+    ttl: 3600 // 1 hour
+);
+
+if ($key) {
+    echo "API Key created successfully!\n";
+    echo "Public Key: " . $key->public_key . "\n";
+    echo "Token: " . $key->token() . "\n";
+
+    // Later, check the key (assuming you have the token)
+    $token = $key->token();
+    if (ApiKeyRedis::check($token, '192.168.1.100')) {
+        echo "API Key is valid.\n";
+    } else {
+        echo "API Key is invalid or expired.\n";
+    }
+} else {
+    echo "Failed to create API Key.\n";
+}
+?>
+```
+
+#### 5. ApiKeyFS
 
 Stores API keys in the file system. This provides persistence across requests and is suitable for production use. Keys are stored in individual files, with the hashed public key used as the filename.
 
@@ -272,7 +315,7 @@ if ($isValid) {
 ?>
 ```
 
-#### 5. ApiKeyDatabase
+#### 6. ApiKeyDatabase
 
 Stores API keys in a database using PDO (PHP Data Objects). This allows for API keys to be stored and retrieved across multiple application instances or requests. It leverages any PDO databases for storage and automatically creates the necessary table schema if it doesn't exist.
 

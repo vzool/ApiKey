@@ -1403,6 +1403,109 @@ class ApiKeyMemcached extends ApiKeyMemory
 }
 
 /**
+ * Class ApiKeyRedis: Extends the ApiKeyMemory class to store and retrieve API keys using Redis.
+ *
+ * This class leverages a Redis server for persistent storage of API key data,
+ * offering advantages like data persistence across requests and potential
+ * scalability for distributed applications.
+ *
+ * @since 0.0.1
+ */
+class ApiKeyRedis extends ApiKeyMemory
+{
+    /**
+     * @var ?\Redis The Redis client instance.
+     * This static property holds the connection to the Redis server.
+     *
+     * @since 0.0.1
+     */
+    public static ?\Redis $redis = NULL;
+
+    /**
+     * Saves a Key object to Redis.
+     *
+     * The key's hashed public key is used as the key in Redis, and the
+     * entire Key object (represented as an associative array) is stored as a JSON string.
+     *
+     * @param Key $key The Key object to save.
+     * @return bool True if the key was successfully saved to Redis, false otherwise.
+     *
+     * @since 0.0.1
+     */
+    protected static function save(Key $key) : bool
+    {
+        return self::$redis->set(
+            $key->hashed_public_key,
+            json_encode($key->dict()),
+        );
+    }
+
+    /**
+     * Loads a Key object from Redis based on the hashed public key and creation timestamp.
+     *
+     * Retrieves the JSON string associated with the given hashed public key from Redis
+     * and decodes it into an associative array. If no key is found, it returns NULL.
+     * The `$created` timestamp is included for potential future use or compatibility
+     * with the parent class's signature, although it is not directly used in this Redis implementation.
+     *
+     * @param string $hashed_public_key The hashed public key of the API key to load.
+     * @param int $created The creation timestamp (not directly used in this implementation).
+     * @return ?array The API key data as an associative array if found, NULL otherwise.
+     *
+     * @since 0.0.1
+     */
+    protected static function load(string $hashed_public_key, int $created)
+    {
+        return json_decode(self::$redis->get($hashed_public_key), associative: true) ?: NULL;
+    }
+
+    /**
+     * Performs a basic test of the ApiKeyRedis functionality.
+     *
+     * This method initializes a Redis connection, creates a test API key,
+     * saves it to Redis, and then performs several assertions to verify
+     * the key generation, token retrieval, and the `check()` method's
+     * ability to validate the token based on IP address and expiration.
+     *
+     * @param bool $debug Optional. If true, outputs a class identifier. Defaults to false.
+     * @return void
+     *
+     * @since 0.0.1
+     */
+    public static function test(bool $debug = false)
+    {
+        if( ! defined('API_KEY_LIB')) echo('[' . __CLASS__ . ']' . PHP_EOL);
+        if( ! defined('APP_KEY')){
+            /**
+             * @ignore
+             */
+            define('APP_KEY', '28CD9DC8-B693-49F0-82CA-04AE8E73ABD3');
+        }
+        self::$debug = $debug;
+        self::$redis = new \Redis([
+            'host' => '127.0.0.1',
+            'port' => 6379,
+        ]);
+        $key = self::make(
+            label: 'x',
+            ip: '127.0.0.1',
+            ttl: 1,
+        );
+        assert( ! empty($key));
+        $token = $key->token();
+        assert( ! empty($token));
+        assert(self::check($token));
+        assert(self::check($token, ip: '127.0.0.1'));
+        assert( ! self::check($token, ip: '127.0.0.2'));
+        assert( ! self::check(''));
+        assert( ! self::check('123'));
+        sleep(2);
+        assert( ! self::check($token, ip: '127.0.0.1'));
+        assert( ! self::check($token, ip: '127.0.0.2'));
+    }
+}
+
+/**
  * Class ApiKeyFS: Manages API keys, extending the in-memory storage with file system persistence.
  *
  * This class provides methods for saving, loading, and managing API keys,
@@ -1985,6 +2088,8 @@ class CLI
             ApiKeyAPCu::test(debug: $verbose);
         if(class_exists('\\Memcached'))
             ApiKeyMemcached::test(debug: $verbose);
+        if(class_exists('\\Redis'))
+            ApiKeyRedis::test(debug: $verbose);
         ApiKeyFS::test(debug: $verbose);
         ApiKeyDatabase::test(debug: $verbose);
         CLI::test(debug: $verbose);
