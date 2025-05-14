@@ -1297,7 +1297,7 @@ class ApiKeyAPCu extends ApiKeyMemory
  *
  * @since 0.0.1
  */
-class ApiKeyMemcached
+class ApiKeyMemcached extends ApiKeyMemory
 {
     /**The Memcached instance used for storing and retrieving API keys.
      *
