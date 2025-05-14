@@ -1287,6 +1287,116 @@ class ApiKeyAPCu extends ApiKeyMemory
 }
 
 /**
+ * Class ApiKeyMemcached: Extends the ApiKeyMemory class to store and retrieve API keys using Memcached.
+ *
+ * This class leverages Memcached for persistent storage of API key data,
+ * offering potential performance benefits over in-memory storage, especially
+ * in distributed environments or for longer-lived API keys. It inherits
+ * the core API key generation and validation logic from ApiKeyMemory
+ * and overrides the storage mechanisms to interact with a Memcached instance.
+ *
+ * @since 0.0.1
+ */
+class ApiKeyMemcached
+{
+    /**The Memcached instance used for storing and retrieving API keys.
+     *
+     * This static property holds the connection to the Memcached server.
+     * It needs to be initialized elsewhere in the application before
+     * the methods of this class are used.
+     *
+     * @var \Memcached|null
+     *
+     * @since 0.0.1
+     */
+    public static ?\Memcached $memcached = NULL;
+
+    /**
+     * Saves a Key object to Memcached.
+     *
+     * This protected static method takes a Key object and stores its
+     * dictionary representation in Memcached using the hashed public key
+     * as the key.
+     *
+     * @param Key $key The Key object to save.
+     * @return bool True on success, false on failure.
+     *
+     * @since 0.0.1
+     */
+    protected static function save(Key $key) : bool
+    {
+        return self::$memcached->set(
+            $key->hashed_public_key,
+            $key->dict(),
+        );
+    }
+
+    /**
+     * Loads API key data from Memcached based on the hashed public key.
+     *
+     * This protected static method retrieves data associated with the given
+     * hashed public key from Memcached. If the key is not found, it returns null.
+     * The `$created` timestamp is included for potential future use or compatibility
+     * with the parent class's signature, though it's not directly used in this
+     * Memcached implementation.
+     *
+     * @param string $hashed_public_key The hashed public key of the API key to load.
+     * @param int $created The creation timestamp of the API key (not directly used in this method).
+     * @return array|null The API key data as an associative array, or null if not found.
+     *
+     * @since 0.0.1
+     */
+    protected static function load(string $hashed_public_key, int $created)
+    {
+        return self::$memcached->get($hashed_public_key) ?: NULL;
+    }
+
+    /**
+     * Performs a basic test of the API key functionality using Memcached.
+     *
+     * This method defines necessary constants, initializes a Memcached connection,
+     * creates API keys, and performs assertions to verify the key generation,
+     * token generation, and validation processes when using Memcached for storage.
+     * It also tests time-based expiry of the API keys.
+     *
+     * @param bool $debug Optional. If true, enables debugging output. Defaults to false.
+     * @return void
+     *
+     * @since 0.0.1
+     */
+    public static function test(bool $debug = false)
+    {
+        if( ! defined('APP_KEY')){
+            /**
+             * @ignore
+             */
+            define('APP_KEY', '0d02e727-d820-4e75-a500-3bb44fd42163');
+        }
+        self::$debug = $debug;
+        self::$memcached = new \Memcached(
+            persistent_id: 'test_pool',
+        );
+        self::$memcached->addServer('127.0.0.1', 11211);
+        $key = self::make(
+            label: 'x',
+            ip: '127.0.0.1',
+            ttl: 1,
+        );
+        assert( ! empty($key));
+        $token = $key->token();
+        assert( ! empty($token));
+        assert(self::check($token));
+        assert(self::check($token, ip: '127.0.0.1'));
+        assert( ! self::check($token, ip: '127.0.0.2'));
+        assert( ! self::check(''));
+        assert( ! self::check('123'));
+        sleep(2);
+        assert( ! self::check($token, ip: '127.0.0.1'));
+        assert( ! self::check($token, ip: '127.0.0.2'));
+    }
+}
+
+/**
  * Class ApiKeyFS: Manages API keys, extending the in-memory storage with file system persistence.
  *
  * This class provides methods for saving, loading, and managing API keys,
@@ -1865,6 +1975,8 @@ class CLI
         ApiKeyMemory::test(debug: $verbose);
         if(function_exists('apcu_add') && function_exists('apcu_fetch'))
             ApiKeyAPCu::test(debug: $verbose);
+        if(class_exists('\\Memcached'))
+            ApiKeyMemcached::test(debug: $verbose);
         ApiKeyFS::test(debug: $verbose);
         ApiKeyDatabase::test(debug: $verbose);
         CLI::test(debug: $verbose);
